@@ -1,0 +1,71 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+# package-lock.json should be included for npm ci
+yarn.lock
+
+# Build output (will be created during Docker build)
+dist/
+build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# Documentation
+docs/
+
+# Testing
+coverage/
+.nyc_output/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+tests/
+__tests__/
+test/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+circle.yml
+
+# Docker (but include Dockerfile and nginx.conf)
+docker-compose*.yml
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# Scripts
+scripts/
+
+# Other
+.editorconfig
+.prettierrc
+.prettierignore
+.eslintrc*
+.eslintignore
+jest.config.js
