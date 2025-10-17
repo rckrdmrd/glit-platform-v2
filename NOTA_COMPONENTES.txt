@@ -1,0 +1,92 @@
+ANÁLISIS DE COMPONENTES EDUCATIVOS - GLIT PLATFORM V2
+======================================================
+
+ARCHIVOS DE DOCUMENTACIÓN GENERADOS:
+
+1. COMPONENTES_EDUCATIVOS_REPORTE.md
+   Reporte completo con 10 secciones
+   - Descripción detallada de componentes
+   - Props y funcionalidad de cada uno
+   - Mapa de navegación
+   - Tipos de ejercicios
+   - Sistema de rangos
+
+2. TABLA_REFERENCIA_COMPONENTES.md  
+   Referencia rápida y compacta
+   - Tabla de componentes
+   - Tipos TypeScript
+   - Hooks custom
+   - APIs
+   - Estilos
+
+COMPONENTES ANALIZADOS (13):
+============================
+
+UI Base:
+- ExerciseContainer (/src/shared/components/mechanics/)
+- ProgressTracker (/src/shared/components/mechanics/)
+- ProgressBar (/src/shared/components/base/)
+- RankBadge (/src/shared/components/base/)
+
+Rangos:
+- RankBadgeAdvanced (/src/features/gamification/ranks/components/)
+- RankProgressBar (/src/features/gamification/ranks/components/)
+- RankUpModal (/src/features/gamification/ranks/components/)
+
+Módulos:
+- ModulesSection (/src/apps/student/components/dashboard/)
+- ModuleCard (component interno)
+- ExercisePlayer (/src/shared/components/exercises/)
+
+Dashboard:
+- RankProgressWidget (/src/apps/student/components/dashboard/)
+- RanksSection (/src/apps/student/components/gamification/)
+- ProgressStats (/src/apps/student/components/dashboard/)
+
+PÁGINAS (4 principales):
+========================
+- /dashboard (DashboardComplete)
+- /module/:moduleId (ModuleDetailPage)
+- /module/:moduleId/exercise/:exerciseId (ExercisePage)
+- /gamification (GamificationPage)
+
+TIPOS DE EJERCICIOS (31+):
+==========================
+Módulo 1: 5 (Comprensión Literal)
+Módulo 2: 5 (Comprensión Inferencial)
+Módulo 3: 5 (Comprensión Crítica)
+Módulo 4: 9 (Digital/Multimedial)
+Módulo 5: 3 (Producción Creativa)
+Auxiliar: 4 (Soporte)
+
+RANGOS MAYA (5):
+================
+1. Al Mehen (Gray) - 0 XP - 1.0x
+2. Chilan (Green) - 500 XP - 1.5x
+3. Batab (Blue) - 1500 XP - 2.0x
+4. Halach Uinik (Purple) - 3500 XP - 2.5x
+5. Kukulkan (Yellow) - 7500 XP - 3.0x
+
+HOOKS CUSTOM (7):
+=================
+- useModules()
+- useModuleDetail()
+- useUserModules()
+- useExerciseState()
+- useExerciseAttempts()
+- useRank()
+- useProgression()
+
+RUTAS TOTALES (30+):
+===================
+Estudiante: 8 rutas principales
+Profesor: 11 rutas
+Admin: 9 rutas
++ 2+ rutas secundarias
+
+STACK TECNOLÓGICO:
+==================
+React 18.2, TypeScript, Tailwind CSS 3
+Framer Motion, React Router 6, Lucide Icons
+
+Para más detalles, consultar los archivos markdown generados.

@@ -3,82 +3,47 @@ import { TimelineData } from './timelineTypes';
 export const mockTimelineExercises: TimelineData[] = [
   {
     id: 'timeline-001',
-    title: 'Línea de Tiempo: Vida de Marie Curie',
-    description: 'Ordena cronológicamente los eventos importantes de la vida de Marie Curie',
+    title: 'Línea de Tiempo de Marie Curie',
+    description: 'Arrastra cada evento a su fecha correspondiente en la línea de tiempo. Basado en Módulo 1 - Ejercicio 1',
     difficulty: 'medio',
     estimatedTime: 480,
-    topic: 'Marie Curie - Biografía',
+    topic: 'Marie Curie - Módulo 1: Comprensión Literal',
     hints: [
-      { id: 'hint-t1', text: 'Marie Curie nació en el siglo XIX', cost: 5 },
-      { id: 'hint-t2', text: 'Su primer Premio Nobel fue en 1903', cost: 8 },
-      { id: 'hint-t3', text: 'Descubrió el Radio antes del Polonio', cost: 10 }
+      { id: 'hint-t1', text: 'Marie Curie nació en Varsovia, Polonia en el siglo XIX', cost: 15 },
+      { id: 'hint-t2', text: 'Se trasladó a París antes de recibir su primer Nobel', cost: 15 },
+      { id: 'hint-t3', text: 'Recibió dos Premios Nobel en diferentes años', cost: 15 }
     ],
     events: [
       {
         id: 'event-1',
         year: 1867,
-        title: 'Nacimiento',
-        description: 'María Sklodowska nace en Varsovia, Polonia',
+        title: 'Nace en Varsovia, Polonia, como Maria Sklodowska',
+        description: 'Nace en Varsovia, Polonia, como Maria Sklodowska',
         category: 'Personal'
       },
       {
         id: 'event-2',
         year: 1891,
-        title: 'Estudios en París',
-        description: 'Se muda a París para estudiar en la Sorbona',
+        title: 'Se traslada a París para estudiar en la Sorbona',
+        description: 'Se traslada a París para estudiar en la Sorbona',
         category: 'Educación'
       },
       {
         id: 'event-3',
-        year: 1895,
-        title: 'Matrimonio',
-        description: 'Se casa con Pierre Curie',
-        category: 'Personal'
+        year: 1903,
+        title: 'Recibe el Premio Nobel de Física junto con Pierre y Becquerel',
+        description: 'Recibe el Premio Nobel de Física junto con Pierre y Becquerel',
+        category: 'Reconocimiento'
       },
       {
         id: 'event-4',
-        year: 1898,
-        title: 'Descubrimiento del Polonio',
-        description: 'Descubre el elemento Polonio, nombrado por su país natal',
-        category: 'Científico'
-      },
-      {
-        id: 'event-5',
-        year: 1898,
-        title: 'Descubrimiento del Radio',
-        description: 'Descubre el elemento Radio junto con Pierre',
-        category: 'Científico'
-      },
-      {
-        id: 'event-6',
-        year: 1903,
-        title: 'Primer Premio Nobel',
-        description: 'Recibe el Premio Nobel de Física junto con Pierre Curie y Henri Becquerel',
-        category: 'Reconocimiento'
-      },
-      {
-        id: 'event-7',
         year: 1911,
-        title: 'Segundo Premio Nobel',
-        description: 'Recibe el Premio Nobel de Química',
+        title: 'Recibe el Premio Nobel de Química por el descubrimiento del radio y polonio',
+        description: 'Recibe el Premio Nobel de Química por el descubrimiento del radio y polonio',
         category: 'Reconocimiento'
-      },
-      {
-        id: 'event-8',
-        year: 1914,
-        title: 'Instituto del Radio',
-        description: 'Funda el Instituto del Radio en París',
-        category: 'Científico'
-      },
-      {
-        id: 'event-9',
-        year: 1934,
-        title: 'Fallecimiento',
-        description: 'Muere en Francia debido a la exposición a la radiación',
-        category: 'Personal'
       }
     ],
-    correctOrder: ['event-1', 'event-2', 'event-3', 'event-4', 'event-5', 'event-6', 'event-7', 'event-8', 'event-9']
+    correctOrder: ['event-1', 'event-2', 'event-3', 'event-4']
   },
   {
     id: 'timeline-002',

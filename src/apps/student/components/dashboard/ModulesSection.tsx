@@ -389,39 +389,20 @@ export const ModulesSection: React.FC<ModulesSectionProps> = ({
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="space-y-2"
       >
         <div>
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-orange-600" />
-            Módulos Educativos
+            Módulos Detectivescos 🔍
           </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Explora los misterios de la lectura y desarrolla tus habilidades detectivescas
+          <p className="text-sm text-gray-600">
+            {totalModules} módulos de investigación disponibles
           </p>
         </div>
-
-        {/* Summary Stats */}
-        {!loading && totalModules > 0 && (
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span className="text-green-700 font-medium">{completedModules} completados</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Play className="w-4 h-4 text-blue-600" />
-              <span className="text-blue-700 font-medium">{inProgressModules} en curso</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Target className="w-4 h-4 text-orange-600" />
-              <span className="text-orange-700 font-medium">{availableModules} disponibles</span>
-            </div>
-          </div>
-        )}
       </motion.div>
 
-      {/* Modules Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Modules Grid - cada módulo ocupa 4 columnas (2 módulos por fila) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {loading ? (
           // Loading skeletons
           Array.from({ length: 6 }, (_, i) => (
@@ -451,43 +432,6 @@ export const ModulesSection: React.FC<ModulesSectionProps> = ({
         )}
       </div>
 
-      {/* Progress Summary */}
-      {!loading && totalModules > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl p-6"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-orange-900 mb-1">
-                Progreso General
-              </h3>
-              <p className="text-sm text-orange-700">
-                Has completado {completedModules} de {totalModules} módulos disponibles
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-orange-900">
-                {Math.round((completedModules / totalModules) * 100)}%
-              </div>
-              <div className="text-sm text-orange-600">completado</div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <div className="w-full bg-orange-200 rounded-full h-3">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${(completedModules / totalModules) * 100}%` }}
-                transition={{ duration: 1.5, ease: "easeOut", delay: 1 }}
-                className="bg-gradient-to-r from-orange-500 to-yellow-500 h-3 rounded-full"
-              />
-            </div>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 };

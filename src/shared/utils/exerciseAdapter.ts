@@ -58,40 +58,74 @@ export const adaptToBaseExercise = (exercise: ExerciseData): BaseExercise => {
 };
 
 /**
+ * Generates crossword grid from clues
+ */
+const generateGridFromClues = (clues: any[], rows: number, cols: number): any[][] => {
+  // Initialize empty grid
+  const grid: any[][] = [];
+  for (let r = 0; r < rows; r++) {
+    grid[r] = [];
+    for (let c = 0; c < cols; c++) {
+      grid[r][c] = {
+        row: r,
+        col: c,
+        letter: '',
+        isBlack: true,
+        userInput: '',
+      };
+    }
+  }
+
+  // Fill grid with letters from clues
+  clues.forEach((clue) => {
+    const { answer, startRow, startCol, direction, number } = clue;
+
+    for (let i = 0; i < answer.length; i++) {
+      let row, col;
+      if (direction === 'horizontal') {
+        row = startRow;
+        col = startCol + i;
+      } else {
+        row = startRow + i;
+        col = startCol;
+      }
+
+      if (row < rows && col < cols) {
+        grid[row][col] = {
+          row,
+          col,
+          letter: answer[i],
+          isBlack: false,
+          number: i === 0 ? number : undefined,
+          userInput: '',
+        };
+      }
+    }
+  });
+
+  return grid;
+};
+
+/**
  * Adapts ExerciseData to CrucigramaData format
  */
 export const adaptToCrucigramaData = (exercise: ExerciseData): any => {
   const base = adaptToBaseExercise(exercise);
 
-  // Mock data for crucigrama - In production, this would come from mechanicData
-  const mockGrid = [
-    [
-      { row: 0, col: 0, letter: 'M', isBlack: false, number: 1, userInput: '' },
-      { row: 0, col: 1, letter: 'A', isBlack: false, userInput: '' },
-      { row: 0, col: 2, letter: 'R', isBlack: false, userInput: '' },
-      { row: 0, col: 3, letter: 'I', isBlack: false, userInput: '' },
-      { row: 0, col: 4, letter: 'E', isBlack: false, userInput: '' },
-    ],
-  ];
+  // Get clues and grid size from mechanicData.content
+  const content = exercise.mechanicData?.content || {};
+  const clues = content.clues || [];
+  const gridSize = content.gridSize || { rows: 15, cols: 15 };
 
-  const mockClues = [
-    {
-      id: 'h1',
-      number: 1,
-      direction: 'horizontal' as const,
-      clue: 'Nombre de la científica',
-      answer: 'MARIE',
-      startRow: 0,
-      startCol: 0,
-    },
-  ];
+  // Generate grid from clues
+  const grid = generateGridFromClues(clues, gridSize.rows, gridSize.cols);
 
   return {
     ...base,
-    grid: exercise.mechanicData?.grid || mockGrid,
-    clues: exercise.mechanicData?.clues || mockClues,
-    rows: exercise.mechanicData?.rows || mockGrid.length,
-    cols: exercise.mechanicData?.cols || (mockGrid[0]?.length || 5),
+    grid,
+    clues,
+    rows: gridSize.rows,
+    cols: gridSize.cols,
   };
 };
 
@@ -101,16 +135,88 @@ export const adaptToCrucigramaData = (exercise: ExerciseData): any => {
 export const adaptToTimelineData = (exercise: ExerciseData): any => {
   const base = adaptToBaseExercise(exercise);
 
-  // Mock data for timeline - In production, this would come from mechanicData
-  const mockEvents = [
-    { id: '1', year: 1867, title: 'Nacimiento', description: 'Marie Curie nació en Varsovia', date: '1867-11-07' },
-    { id: '2', year: 1891, title: 'Llegada a París', description: 'Comenzó sus estudios en la Sorbona', date: '1891-09-01' },
-  ];
+  // Get data from mechanicData.content
+  const content = exercise.mechanicData?.content || {};
+  const solution = exercise.mechanicData?.solution || {};
 
   return {
     ...base,
-    events: exercise.mechanicData?.events || mockEvents,
-    correctOrder: exercise.mechanicData?.correctOrder || ['1', '2'],
+    events: content.events || [],
+    correctOrder: solution.correctOrder || [],
+    categories: content.categories || [],
+  };
+};
+
+/**
+ * Adapts ExerciseData to VerdaderoFalsoData format
+ */
+export const adaptToVerdaderoFalsoData = (exercise: ExerciseData): any => {
+  const base = adaptToBaseExercise(exercise);
+
+  // Get data from mechanicData.content
+  const content = exercise.mechanicData?.content || {};
+
+  return {
+    ...base,
+    contextText: content.contextText || '',
+    statements: content.statements || [],
+  };
+};
+
+/**
+ * Adapts ExerciseData to EmparejamientoData format
+ */
+export const adaptToEmparejamientoData = (exercise: ExerciseData): any => {
+  const base = adaptToBaseExercise(exercise);
+
+  // Get data from mechanicData.content
+  const content = exercise.mechanicData?.content || {};
+
+  // Convert pairs to cards format
+  const pairs = content.pairs || [];
+  const cards = [];
+
+  pairs.forEach((pair: any) => {
+    cards.push({
+      id: pair.left.id,
+      content: pair.left.content,
+      matchId: pair.id,
+      type: 'question',
+      isFlipped: false,
+      isMatched: false,
+    });
+    cards.push({
+      id: pair.right.id,
+      content: pair.right.content,
+      matchId: pair.id,
+      type: 'answer',
+      isFlipped: false,
+      isMatched: false,
+    });
+  });
+
+  return {
+    ...base,
+    scenarioText: content.scenarioText || '',
+    cards,
+  };
+};
+
+/**
+ * Adapts ExerciseData to CompletarEspaciosData format
+ */
+export const adaptToCompletarEspaciosData = (exercise: ExerciseData): any => {
+  const base = adaptToBaseExercise(exercise);
+
+  // Get data from mechanicData.content
+  const content = exercise.mechanicData?.content || {};
+
+  return {
+    ...base,
+    scenarioText: content.scenarioText || '',
+    text: content.text || '',
+    blanks: content.blanks || [],
+    wordBank: content.wordBank || [],
   };
 };
 
@@ -184,6 +290,12 @@ export const adaptExerciseData = (exercise: ExerciseData): any => {
     return adaptToCrucigramaData(exercise);
   } else if (type.includes('timeline') || type.includes('linea_tiempo')) {
     return adaptToTimelineData(exercise);
+  } else if (type.includes('verdadero_falso') || type.includes('true_false')) {
+    return adaptToVerdaderoFalsoData(exercise);
+  } else if (type.includes('emparejamiento') || type.includes('matching')) {
+    return adaptToEmparejamientoData(exercise);
+  } else if (type.includes('completar_espacios') || type.includes('fill_in_blank')) {
+    return adaptToCompletarEspaciosData(exercise);
   } else if (type.includes('sopa_letras')) {
     return adaptToSopaLetrasData(exercise);
   } else if (type.includes('mapa_conceptual') || type.includes('mapa conceptual')) {

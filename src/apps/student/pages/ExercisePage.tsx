@@ -71,6 +71,8 @@ const loadMechanic = (mechanicType: string) => {
     'sopa_letras': () => import('@/features/mechanics/module1/SopaLetras/SopaLetrasExercise'),
     'mapa_conceptual': () => import('@/features/mechanics/module1/MapaConceptual/MapaConceptualExercise'),
     'emparejamiento': () => import('@/features/mechanics/module1/Emparejamiento/EmparejamientoExercise'),
+    'verdadero_falso': () => import('@/features/mechanics/module1/VerdaderoFalso/VerdaderoFalsoExercise'),
+    'completar_espacios': () => import('@/features/mechanics/module1/CompletarEspacios/CompletarEspaciosExercise'),
 
     // Module 2 - Comprensión Inferencial
     'detective_textual': () => import('@/features/mechanics/module2/DetectiveTextual/DetectiveTextualExercise'),

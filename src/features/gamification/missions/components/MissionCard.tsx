@@ -56,10 +56,27 @@ export function MissionCard({
   const [timeRemaining, setTimeRemaining] = useState('');
 
   // Get unique color scheme based on mission ID (consistent across renders)
-  const colorScheme = useMemo(() => getColorSchemeById(mission.id), [mission.id]);
+  const colorScheme = useMemo(() => {
+    if (!mission.id) {
+      return {
+        iconGradient: 'from-blue-500 to-cyan-500',
+        progressGradient: 'from-blue-500 to-cyan-500',
+        border: 'border-blue-400',
+        shadow: 'shadow-blue-200',
+        background: 'bg-blue-50',
+        badge: 'bg-blue-500 text-white',
+      };
+    }
+    return getColorSchemeById(mission.id);
+  }, [mission.id]);
 
   // Countdown timer
   useEffect(() => {
+    if (!mission.expiresAt) {
+      setTimeRemaining('Sin límite');
+      return;
+    }
+
     const updateTimer = () => {
       const now = new Date().getTime();
       const expires = new Date(mission.expiresAt).getTime();
@@ -101,13 +118,25 @@ export function MissionCard({
   const CategoryIcon = getCategoryIcon(mission.category);
 
   // Status-based styling with random colors
-  const statusStyles = useMemo(() => getStatusStyles(mission.status, colorScheme), [mission.status, colorScheme]);
+  const statusStyles = useMemo(() => {
+    const styles = getStatusStyles(mission.status, colorScheme);
+    // Ensure we always have valid styles as a fallback
+    if (!styles) {
+      return {
+        border: 'border-gray-300',
+        shadow: '',
+        background: 'bg-white',
+        badge: 'bg-gray-200 text-gray-700',
+      };
+    }
+    return styles;
+  }, [mission.status, colorScheme]);
 
   // Difficulty badge color
   const difficultyColor = getDifficultyColor(mission.difficulty);
 
   // Timer color (red if < 1 hour)
-  const isUrgent = mission.expiresAt.getTime() - new Date().getTime() < 3600000;
+  const isUrgent = mission.expiresAt ? new Date(mission.expiresAt).getTime() - new Date().getTime() < 3600000 : false;
 
   return (
     <>
@@ -156,11 +185,13 @@ export function MissionCard({
         </div>
 
         {/* Difficulty Badge (Top Left) */}
-        <div className="absolute top-3 left-3 z-10">
-          <div className={cn('px-2 py-1 rounded-md text-xs font-semibold', difficultyColor)}>
-            {mission.difficulty.toUpperCase()}
+        {mission.difficulty && (
+          <div className="absolute top-3 left-3 z-10">
+            <div className={cn('px-2 py-1 rounded-md text-xs font-semibold', difficultyColor)}>
+              {mission.difficulty.toUpperCase()}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Card Content */}
         <div className={cn('p-6', statusStyles.background)}>
@@ -171,7 +202,7 @@ export function MissionCard({
                 'flex-shrink-0 w-16 h-16 rounded-xl',
                 'flex items-center justify-center',
                 'bg-gradient-to-br',
-                colorScheme.iconGradient,
+                colorScheme?.iconGradient || 'from-blue-500 to-cyan-500',
                 'shadow-md'
               )}
             >
@@ -181,12 +212,12 @@ export function MissionCard({
             <div className="flex-1 min-w-0">
               {/* Title */}
               <h3 className="text-lg font-bold text-gray-800 mb-1 line-clamp-1">
-                {mission.title}
+                {mission.title || 'Sin título'}
               </h3>
 
               {/* Description */}
               <p className="text-sm text-gray-600 line-clamp-2">
-                {mission.description}
+                {mission.description || 'Sin descripción'}
               </p>
             </div>
           </div>
@@ -196,7 +227,7 @@ export function MissionCard({
             <div className="flex items-center justify-between text-sm mb-2">
               <span className="font-semibold text-gray-700">Progreso</span>
               <span className="font-bold text-gray-800">
-                {mission.currentValue} / {mission.targetValue}
+                {mission.currentValue ?? 0} / {mission.targetValue ?? 0}
               </span>
             </div>
 
@@ -204,17 +235,17 @@ export function MissionCard({
             <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${mission.progress}%` }}
+                animate={{ width: `${mission.progress ?? 0}%` }}
                 transition={{ duration: 1, ease: 'easeOut' }}
                 className={cn(
                   'h-full bg-gradient-to-r',
-                  colorScheme.progressGradient,
+                  colorScheme?.progressGradient || 'from-blue-500 to-cyan-500',
                   'rounded-full'
                 )}
               />
             </div>
             <div className="text-right text-xs text-gray-500 mt-1">
-              {mission.progress}% completado
+              {mission.progress ?? 0}% completado
             </div>
           </div>
 
@@ -223,14 +254,14 @@ export function MissionCard({
             <div className="flex items-center gap-2 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
               <Coins className="w-4 h-4 text-amber-600" />
               <span className="text-sm font-bold text-amber-700">
-                {mission.mlCoinsReward}
+                {mission.mlCoinsReward ?? 0}
               </span>
             </div>
 
             <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
               <Zap className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-bold text-blue-700">
-                {mission.xpReward} XP
+                {mission.xpReward ?? 0} XP
               </span>
             </div>
 
@@ -356,7 +387,7 @@ export function MissionCard({
  */
 
 function getCategoryIcon(category: MissionCategory) {
-  const icons: Record<MissionCategory, React.ElementType> = {
+  const icons: Record<string, React.ElementType> = {
     exercises: BookOpen,
     xp: Zap,
     time: Clock,
@@ -364,7 +395,7 @@ function getCategoryIcon(category: MissionCategory) {
     achievement: Trophy,
     streak: Flame,
   };
-  return icons[category];
+  return icons[category] || BookOpen;
 }
 
 function getCategoryGradient(category: MissionCategory): string {
@@ -380,7 +411,17 @@ function getCategoryGradient(category: MissionCategory): string {
 }
 
 function getStatusStyles(status: Mission['status'], colorScheme: any) {
-  const styles = {
+  // Provide default values if colorScheme is undefined or missing properties
+  const defaultScheme = {
+    border: 'border-blue-400',
+    shadow: 'shadow-blue-200',
+    background: 'bg-blue-50',
+    badge: 'bg-blue-500 text-white',
+  };
+
+  const scheme = colorScheme || defaultScheme;
+
+  const styles: Record<string, any> = {
     not_started: {
       border: 'border-gray-300',
       shadow: '',
@@ -388,16 +429,16 @@ function getStatusStyles(status: Mission['status'], colorScheme: any) {
       badge: 'bg-gray-200 text-gray-700',
     },
     in_progress: {
-      border: colorScheme.border,
-      shadow: colorScheme.shadow,
-      background: colorScheme.background,
-      badge: colorScheme.badge,
+      border: scheme.border || defaultScheme.border,
+      shadow: scheme.shadow || defaultScheme.shadow,
+      background: scheme.background || defaultScheme.background,
+      badge: scheme.badge || defaultScheme.badge,
     },
     completed: {
-      border: colorScheme.border,
-      shadow: colorScheme.shadow,
-      background: colorScheme.background,
-      badge: colorScheme.badge,
+      border: scheme.border || defaultScheme.border,
+      shadow: scheme.shadow || defaultScheme.shadow,
+      background: scheme.background || defaultScheme.background,
+      badge: scheme.badge || defaultScheme.badge,
     },
     claimed: {
       border: 'border-yellow-400',
@@ -406,24 +447,26 @@ function getStatusStyles(status: Mission['status'], colorScheme: any) {
       badge: 'bg-yellow-400 text-white',
     },
   };
-  return styles[status];
+
+  // Return the style for the given status, or default to 'not_started' style if status not found
+  return styles[status] || styles.not_started;
 }
 
 function getStatusLabel(status: Mission['status']): string {
-  const labels = {
+  const labels: Record<string, string> = {
     not_started: 'Nueva',
     in_progress: 'En Progreso',
     completed: 'Completada',
     claimed: 'Reclamada ✓',
   };
-  return labels[status];
+  return labels[status] || 'Nueva';
 }
 
 function getDifficultyColor(difficulty: Mission['difficulty']): string {
-  const colors = {
+  const colors: Record<string, string> = {
     easy: 'bg-green-100 text-green-700 border border-green-300',
     medium: 'bg-yellow-100 text-yellow-700 border border-yellow-300',
     hard: 'bg-red-100 text-red-700 border border-red-300',
   };
-  return colors[difficulty];
+  return colors[difficulty] || colors.medium;
 }

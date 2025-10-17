@@ -7,7 +7,6 @@ import { MissionsPanel } from '../components/dashboard/MissionsPanel';
 import { ModulesSection } from '../components/dashboard/ModulesSection';
 import { RecentActivityPanel } from '../components/dashboard/RecentActivityPanel';
 import { RankProgressWidget } from '../components/dashboard/RankProgressWidget';
-import { MLCoinsWidget } from '../components/dashboard/MLCoinsWidget';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { useMissions } from '@/features/gamification/missions/hooks/useMissions';
@@ -20,7 +19,6 @@ export default function DashboardComplete() {
 
   // Real data from backend
   const {
-    coins,
     rank,
     achievements,
     progress,
@@ -74,22 +72,31 @@ export default function DashboardComplete() {
     xpRequired: rank.nextRankXP,
   } : null;
 
-  const coinsData = coins ? {
-    balance: coins.balance,
-    todayEarned: coins.todayEarned,
-    todaySpent: coins.todaySpent,
-    recentTransactions: coins.recentTransactions,
-    current: coins.balance,
-    earned: coins.todayEarned,
-    spent: coins.todaySpent,
-    trend: (coins.todayEarned > coins.todaySpent ? 'up' : 'down') as 'up' | 'down',
-  } : null;
+  // Missions data from missions API - transform to match MissionsPanel interface
+  const transformedMissions = (activeMissions.length > 0 ? activeMissions : allMissions.slice(0, 3)).map(mission => ({
+    ...mission,
+    currentProgress: mission.currentValue,
+    targetProgress: mission.targetValue,
+    isCompleted: mission.status === 'completed' || mission.status === 'claimed',
+    isExpired: mission.expiresAt ? new Date(mission.expiresAt) < new Date() : false,
+    priority: mission.difficulty === 'easy' ? 'low' as const :
+              mission.difficulty === 'medium' ? 'medium' as const :
+              'high' as const,
+    timeLimit: mission.expiresAt,
+    mlReward: mission.mlCoinsReward
+  }));
+  const missionsData = transformedMissions;
 
-  // Missions data from missions API - use active missions or all if none are tracked
-  const missionsData = activeMissions.length > 0 ? activeMissions : allMissions.slice(0, 3);
-
-  // Modules data from modules API
-  const modulesData = userModules || [];
+  // Modules data from modules API - transform to match ModulesSection interface
+  const modulesData = (userModules || []).map(module => ({
+    ...module,
+    difficulty: module.difficulty === 'easy' ? 'facil' as const :
+                module.difficulty === 'medium' ? 'medio' as const :
+                module.difficulty === 'hard' ? 'dificil' as const : 'medio' as const,
+    status: module.status === 'in_progress' ? 'in_progress' as const :
+            module.status === 'available' ? 'available' as const :
+            module.status === 'locked' ? 'locked' as const : 'available' as const
+  }));
 
   // Activities data from activities API
   const activitiesData = userActivities || [];
@@ -103,6 +110,20 @@ export default function DashboardComplete() {
       <GamifiedHeader user={user || undefined} onLogout={handleLogout} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Welcome Message */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            ¡Bienvenido, Detective! 🕵️
+          </h1>
+          <p className="text-gray-600">
+            Explora la plataforma educativa de investigación y desarrolla tus habilidades detectivescas.
+          </p>
+        </motion.div>
+
         {/* Error Display */}
         {error && (
           <motion.div
@@ -120,50 +141,57 @@ export default function DashboardComplete() {
           </motion.div>
         )}
 
-        {/* Dashboard Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-          {/* Left Column - Progress Card, Modules, Activity, and Missions */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Detective Stats - Progress Card (arriba de módulos) */}
-            <EnhancedStatsGrid
-              stats={statsData || { casesResolved: 0, currentStreak: 0, totalTime: 0, totalXP: 0, rankPosition: 0 }}
-              loading={loading}
-              error={error ? new Error(error) : null}
-              compact={false}
-            />
+        {/* Dashboard Grid Layout - 12 columnas */}
+        <div className="space-y-6">
+          {/* Primera Fila: Rango (4 col) + Módulos (8 col con 4 módulos de 2 col c/u) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Rank Progress Widget - 4 columnas */}
+            <div className="lg:col-span-4">
+              <RankProgressWidget data={rankData} loading={loading} />
+            </div>
 
-            {/* Modules Section */}
-            <ModulesSection
-              modules={modulesData}
-              loading={modulesLoading}
-              error={modulesError}
-              onModuleClick={(id) => navigate(`/module/${id}`)}
-            />
-
-            {/* Recent Activity */}
-            <RecentActivityPanel
-              activities={activitiesData}
-              loading={activitiesLoading}
-              error={activitiesError}
-              maxItems={5}
-            />
-
-            {/* Active Missions Panel (abajo de actividades) */}
-            <MissionsPanel
-              missions={missionsData}
-              loading={missionsLoading}
-              error={missionsError ? new Error(missionsError) : null}
-              onMissionClick={(id) => navigate(`/missions`)}
-            />
+            {/* Modules Section - 8 columnas (cada módulo ocupa 2 col = 4 módulos) */}
+            <div className="lg:col-span-8">
+              <ModulesSection
+                modules={modulesData}
+                loading={modulesLoading}
+                error={modulesError}
+                onModuleClick={(id) => navigate(`/module/${id}`)}
+              />
+            </div>
           </div>
 
-          {/* Right Column - Rank and ML Coins */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Rank Progress Widget */}
-            <RankProgressWidget data={rankData} loading={loading} />
+          {/* Segunda Fila: Estadísticas + Misiones (4 col) + Actividad (restante) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Detective Stats - lado izquierdo */}
+            <div className="lg:col-span-4">
+              <EnhancedStatsGrid
+                stats={statsData || { casesResolved: 0, currentStreak: 0, totalTime: 0, totalXP: 0, rankPosition: 0 }}
+                loading={loading}
+                error={error ? new Error(error) : null}
+                compact={false}
+              />
+            </div>
 
-            {/* ML Coins Widget */}
-            <MLCoinsWidget data={coinsData} loading={loading} />
+            {/* Active Missions Panel - 4 columnas */}
+            <div className="lg:col-span-4">
+              <MissionsPanel
+                missions={missionsData}
+                loading={missionsLoading}
+                error={missionsError ? new Error(missionsError) : null}
+                onMissionClick={() => navigate(`/missions`)}
+              />
+            </div>
+
+            {/* Recent Activity - restante (4 columnas) */}
+            <div className="lg:col-span-4">
+              <RecentActivityPanel
+                activities={activitiesData}
+                loading={activitiesLoading}
+                error={activitiesError}
+                maxItems={5}
+              />
+            </div>
           </div>
         </div>
       </div>

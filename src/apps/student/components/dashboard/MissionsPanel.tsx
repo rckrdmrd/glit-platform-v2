@@ -381,7 +381,7 @@ export const MissionsPanel: React.FC<MissionsPanelProps> = ({
       )}
 
       {/* Missions List */}
-      <div className="space-y-3 max-h-96 overflow-y-auto">
+      <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
         {loading ? (
           // Loading skeletons
           Array.from({ length: 3 }, (_, i) => (
@@ -420,35 +420,6 @@ export const MissionsPanel: React.FC<MissionsPanelProps> = ({
         )}
       </div>
 
-      {/* Mission Summary */}
-      {!loading && missions.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-4"
-        >
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1">
-                <Trophy className="w-4 h-4 text-green-600" />
-                <span className="text-green-700 font-medium">{completedMissions.length} completadas</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Target className="w-4 h-4 text-orange-600" />
-                <span className="text-orange-700 font-medium">{activeMissions.length} activas</span>
-              </div>
-            </div>
-
-            {urgentMissions.length > 0 && (
-              <div className="flex items-center gap-1">
-                <Flame className="w-4 h-4 text-red-600" />
-                <span className="text-red-700 font-medium">{urgentMissions.length} urgentes</span>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 };

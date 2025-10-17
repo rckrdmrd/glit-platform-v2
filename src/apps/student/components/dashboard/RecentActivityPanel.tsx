@@ -287,12 +287,12 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
         className="flex items-center justify-between"
       >
         <div>
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Activity className="w-6 h-6 text-orange-600" />
+          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-orange-600" />
             Actividad Reciente
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Tu progreso y logros de los últimos días
+          </h3>
+          <p className="text-xs text-gray-600 mt-1">
+            Tus logros recientes
           </p>
         </div>
 
@@ -302,7 +302,7 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
             <div className="text-lg font-bold text-orange-600">
               {activities.length}
             </div>
-            <div className="text-xs text-gray-600">actividades</div>
+            <div className="text-xs text-gray-600">total</div>
           </div>
         )}
       </motion.div>
@@ -351,54 +351,11 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="text-center pt-4"
+          className="text-center pt-2"
         >
-          <button className="text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors">
-            Ver todas las actividades ({activities.length - maxItems} más)
+          <button className="text-orange-600 hover:text-orange-700 font-medium text-xs transition-colors">
+            Ver todas (+{activities.length - maxItems})
           </button>
-        </motion.div>
-      )}
-
-      {/* Activity Summary */}
-      {!loading && activities.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-semibold text-blue-900 mb-1">
-                Resumen de Actividad
-              </h4>
-              <p className="text-sm text-blue-700">
-                {activities.length} actividad{activities.length > 1 ? 'es' : ''} en los últimos días
-              </p>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="flex items-center gap-4 text-sm">
-              <div className="text-center">
-                <div className="text-lg font-bold text-blue-900">
-                  {activities.filter(a => a.type === 'exercise_completed').length}
-                </div>
-                <div className="text-xs text-blue-600">Ejercicios</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-yellow-900">
-                  {activities.filter(a => a.type === 'achievement_unlocked').length}
-                </div>
-                <div className="text-xs text-yellow-600">Logros</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-purple-900">
-                  {activities.filter(a => a.type === 'module_completed').length}
-                </div>
-                <div className="text-xs text-purple-600">Módulos</div>
-              </div>
-            </div>
-          </div>
         </motion.div>
       )}
     </div>

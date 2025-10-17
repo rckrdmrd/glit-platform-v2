@@ -139,6 +139,8 @@ export type ExerciseType =
   | 'sopa_letras'
   | 'mapa_conceptual'
   | 'emparejamiento'
+  | 'verdadero_falso'
+  | 'completar_espacios'
   // Module 2 - Comprensión Inferencial
   | 'detective_textual'
   | 'construccion_hipotesis'
