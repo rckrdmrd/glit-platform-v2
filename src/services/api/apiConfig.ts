@@ -253,6 +253,34 @@ export const API_ENDPOINTS = {
   },
 
   /**
+   * Notifications endpoints (Phase 4)
+   */
+  notifications: {
+    list: '/notifications',
+    unreadCount: '/notifications/unread-count',
+    markAsRead: (id: string) => `/notifications/${id}/read`,
+    markAllAsRead: '/notifications/read-all',
+    delete: (id: string) => `/notifications/${id}`,
+    clearAll: '/notifications/clear-all',
+    send: '/notifications/send',  // Admin only
+  },
+
+  /**
+   * Missions endpoints (Phase 4)
+   */
+  missions: {
+    daily: '/gamification/missions/daily',
+    weekly: '/gamification/missions/weekly',
+    special: '/gamification/missions/special',
+    claim: (id: string) => `/gamification/missions/${id}/claim`,
+    progress: (id: string) => `/gamification/missions/${id}/progress`,
+    complete: (id: string) => `/gamification/missions/${id}/complete`,
+    userMissions: (userId: string) => `/gamification/missions/user/${userId}`,
+    check: (userId: string) => `/gamification/missions/check/${userId}`,
+    stats: (userId: string) => `/gamification/missions/stats/${userId}`,
+  },
+
+  /**
    * Admin endpoints
    */
   admin: {
