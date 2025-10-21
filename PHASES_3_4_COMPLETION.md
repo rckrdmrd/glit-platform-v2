@@ -192,7 +192,9 @@ interface Mission {
 1. ✅ `src/services/api/apiConfig.ts` - Added notifications + missions endpoints
 2. ✅ `src/services/api/notificationsAPI.ts` - NEW
 3. ✅ `src/services/api/missionsAPI.ts` - NEW
-4. ✅ `PHASES_3_4_COMPLETION.md` - Este documento
+4. ✅ `src/features/notifications/store/notificationsStore.ts` - Updated with centralized API
+5. ✅ `src/features/missions/store/missionsStore.ts` - NEW
+6. ✅ `PHASES_3_4_COMPLETION.md` - Este documento
 
 ---
 
@@ -201,8 +203,8 @@ interface Mission {
 | Módulo | Backend | Frontend API | Frontend Store | Frontend UI | Estado |
 |--------|---------|--------------|----------------|-------------|--------|
 | Validaciones | ✅ 100% | N/A | N/A | N/A | ✅ COMPLETADO |
-| Notificaciones | ✅ 100% (7 endpoints) | ✅ 100% | ⏳ 0% | ⏳ 0% | ⚠️ APIs creados |
-| Misiones | ✅ 100% (9 endpoints) | ✅ 100% | ⏳ 0% | ⏳ 0% | ⚠️ APIs creados |
+| Notificaciones | ✅ 100% (7 endpoints) | ✅ 100% | ✅ 100% | ⏳ 0% | ⚠️ Store creado |
+| Misiones | ✅ 100% (9 endpoints) | ✅ 100% | ✅ 100% | ⏳ 0% | ⚠️ Store creado |
 | Teacher Portal | ✅ 100% (28 endpoints) | ⏳ 0% | ⏳ 0% | ⚠️ 50% (mock) | ⏳ Pendiente Fase 5 |
 
 ---
@@ -220,7 +222,9 @@ interface Mission {
 - ✅ 9 endpoints misiones en apiConfig
 - ✅ API client notificaciones completo
 - ✅ API client misiones completo
-- ⏳ Stores y componentes pendientes (1-2 semanas)
+- ✅ Zustand store notificaciones completo
+- ✅ Zustand store misiones completo
+- ⏳ Componentes UI pendientes (ver INTEGRATION_GUIDE_PHASES_4_5.md)
 
 ---
 
@@ -240,5 +244,5 @@ interface Mission {
 
 **Autor:** Claude Code
 **Última actualización:** 2025-10-21
-**Estado:** Fases 3 y 4 APIs creados | Frontend components pendientes
-**Próxima acción:** Crear Zustand stores y componentes React para Notificaciones y Misiones
+**Estado:** Fases 3 y 4 - APIs y Stores completados ✅
+**Próxima acción:** Crear componentes UI React (ver INTEGRATION_GUIDE_PHASES_4_5.md para ejemplos completos)
