@@ -46,34 +46,26 @@ export const API_ENDPOINTS = {
    * Ranks & Progression endpoints
    */
   ranks: {
-    current: '/gamification/ranks/current',
-    progress: '/gamification/ranks/progress',
-    addXP: '/gamification/ranks/xp',
-    levelUp: '/gamification/ranks/levelup',
-    rankUp: '/gamification/ranks/rankup',
-    prestige: '/gamification/ranks/prestige',
-    history: '/gamification/ranks/history',
-    multipliers: '/gamification/ranks/multipliers',
-    addMultiplier: '/gamification/ranks/multipliers',
-    removeMultiplier: (type: string) => `/gamification/ranks/multipliers/${type}`,
+    current: (userId: string) => `/gamification/ranks/user/${userId}`,  // Fixed: was /ranks/current
+    checkPromotion: (userId: string) => `/gamification/ranks/check-promotion/${userId}`,
+    rankUp: (userId: string) => `/gamification/ranks/promote/${userId}`,  // Fixed: was /ranks/rankup
+    history: (userId: string) => `/gamification/ranks/history/${userId}`,  // Fixed: was /ranks/history
+    multipliers: (userId: string) => `/gamification/ranks/multiplier/${userId}`,  // Fixed: was /ranks/multipliers
+    listAll: '/gamification/ranks',
+    getDetails: (rank: string) => `/gamification/ranks/${rank}`,
   },
 
   /**
-   * Economy & Shop endpoints
+   * Economy & Shop endpoints (ML Coins)
    */
   economy: {
-    balance: '/gamification/economy/balance',
-    transactions: '/gamification/economy/transactions',
-    transaction: (id: string) => `/gamification/economy/transactions/${id}`,
-    earn: '/gamification/economy/earn',
-    spend: '/gamification/economy/spend',
-    shop: '/gamification/economy/shop',
-    shopItems: '/gamification/economy/shop/items',
-    shopItem: (id: string) => `/gamification/economy/shop/items/${id}`,
-    purchase: '/gamification/economy/purchase',
-    purchaseCart: '/gamification/economy/purchase/cart',
-    inventory: '/gamification/economy/inventory',
-    inventoryItem: (id: string) => `/gamification/economy/inventory/${id}`,
+    balance: (userId: string) => `/gamification/coins/${userId}`,  // Fixed: backend uses /coins/:userId
+    transactions: (userId: string) => `/gamification/coins/transactions/${userId}`,  // Fixed
+    earn: '/gamification/coins/earn',  // POST to earn coins
+    spend: '/gamification/coins/spend',  // POST to spend coins
+    stats: (userId: string) => `/gamification/coins/stats/${userId}`,  // Fixed: was /economy/stats
+    leaderboard: '/gamification/coins/leaderboard',
+    metrics: '/gamification/coins/metrics',  // Admin only
   },
 
   /**
@@ -105,9 +97,10 @@ export const API_ENDPOINTS = {
   },
 
   /**
-   * Leaderboards endpoints
+   * Leaderboards endpoints (Sprint 2 - New Materialized Views)
    */
   leaderboards: {
+    // Legacy endpoints
     global: '/gamification/leaderboards/global',
     school: '/gamification/leaderboards/school',
     grade: '/gamification/leaderboards/grade',
@@ -116,6 +109,13 @@ export const API_ENDPOINTS = {
     userPosition: (userId: string) => `/gamification/leaderboards/position/${userId}`,
     byType: (type: string) => `/gamification/leaderboards/${type}`,
     byTypeAndPeriod: (type: string, period: string) => `/gamification/leaderboards/${type}/${period}`,
+
+    // Sprint 2 - New Materialized View Endpoints
+    xp: '/gamification/leaderboards/xp',
+    coins: '/gamification/leaderboards/coins',
+    streaks: '/gamification/leaderboards/streaks',
+    globalView: '/gamification/leaderboards/global',  // Fixed: was /global-view
+    myRank: (type: 'xp' | 'coins' | 'streaks' | 'global') => `/gamification/leaderboards/my-rank/${type}`,
   },
 
   /**
@@ -277,6 +277,8 @@ export const API_ENDPOINTS = {
       get: (id: string) => `/admin/users/${id}`,
       update: (id: string) => `/admin/users/${id}`,
       delete: (id: string) => `/admin/users/${id}`,
+      activate: (id: string) => `/admin/users/${id}/activate`,
+      deactivate: (id: string) => `/admin/users/${id}/deactivate`,
       suspend: (id: string) => `/admin/users/${id}/suspend`,
       unsuspend: (id: string) => `/admin/users/${id}/unsuspend`,
       resetPassword: (id: string) => `/admin/users/${id}/reset-password`,

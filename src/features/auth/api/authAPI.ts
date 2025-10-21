@@ -109,7 +109,7 @@ const mockRegister = async (data: RegisterData): Promise<AuthResponse> => {
       email: data.email,
       fullName: data.fullName,
       role: 'student',
-      emailVerified: false,
+      emailVerified: true, // Always verified - email verification is disabled
       createdAt: new Date().toISOString(),
     },
     token: 'mock-jwt-token-' + Date.now(),
@@ -161,11 +161,16 @@ export const register = async (registerData: RegisterData): Promise<AuthResponse
     }
 
     // Map frontend register data to backend format
+    // Backend expects firstName and lastName separately
+    const nameParts = registerData.fullName.trim().split(' ');
+    const firstName = nameParts[0] || registerData.fullName;
+    const lastName = nameParts.slice(1).join(' ') || registerData.fullName;
+
     const backendRegisterData = {
       email: registerData.email,
       password: registerData.password,
-      // Backend expects firstName, not fullName
-      firstName: registerData.fullName,
+      firstName: firstName,
+      lastName: lastName,
       role: 'student' as const,
     };
 
@@ -232,6 +237,10 @@ export const refreshToken = async (refreshToken: string): Promise<{ token: strin
 /**
  * Verify email address
  *
+ * @deprecated Since 2025-10 - Email verification is now disabled.
+ * All users are automatically verified upon registration.
+ * This function is kept for backward compatibility only.
+ *
  * @param token - Email verification token
  * @returns Success status
  */
@@ -243,7 +252,7 @@ export const verifyEmail = async (token: string): Promise<void> => {
       return;
     }
 
-    // Real API call
+    // Real API call (backend endpoint is also deprecated)
     await apiClient.post(API_ENDPOINTS.auth.verifyEmail, { token });
   } catch (error) {
     throw handleAPIError(error);
@@ -312,8 +321,8 @@ export const changePassword = async (
       return;
     }
 
-    // Real API call
-    await apiClient.post(API_ENDPOINTS.auth.changePassword, {
+    // Real API call - Backend uses PUT method
+    await apiClient.put(API_ENDPOINTS.auth.changePassword, {
       currentPassword,
       newPassword,
     });
