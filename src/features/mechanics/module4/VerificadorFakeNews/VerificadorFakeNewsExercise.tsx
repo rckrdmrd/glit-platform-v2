@@ -1,16 +1,81 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { Shield, CheckCircle, XCircle } from 'lucide-react';
+import { DetectiveCard } from '@shared/components/base/DetectiveCard';
+import { DetectiveButton } from '@shared/components/base/DetectiveButton';
+import { FeedbackModal } from '@shared/components/mechanics/FeedbackModal';
 import { ArticleParser } from './ArticleParser';
 import { FactCheckDashboard } from './FactCheckDashboard';
 import { mockArticles, mockFactCheckResults } from './verificadorFakeNewsMockData';
-import { Claim, FactCheckResult } from './verificadorFakeNewsTypes';
+import { Claim, FactCheckResult, ExerciseProps, VerificadorState } from './verificadorFakeNewsTypes';
+import { FeedbackData } from '@shared/components/mechanics/mechanicsTypes';
+import { saveProgress as saveProgressUtil, loadProgress, clearProgress } from '@/shared/utils/storage';
 
-export const VerificadorFakeNewsExercise: React.FC = () => {
-  const [selectedArticleId, setSelectedArticleId] = useState(mockArticles[0].id);
-  const [claims, setClaims] = useState<Claim[]>([]);
-  const [results, setResults] = useState<FactCheckResult[]>([]);
+export const VerificadorFakeNewsExercise: React.FC<ExerciseProps> = ({
+  moduleId,
+  lessonId,
+  exerciseId,
+  userId,
+  onComplete,
+  onExit,
+  onProgressUpdate,
+  initialData,
+  difficulty = 'medium',
+  exercise,
+}) => {
+  // State management
+  const [selectedArticleId, setSelectedArticleId] = useState(initialData?.selectedArticleId || mockArticles[0].id);
+  const [claims, setClaims] = useState<Claim[]>(initialData?.claims || []);
+  const [results, setResults] = useState<FactCheckResult[]>(initialData?.results || []);
+  const [startTime] = useState(new Date());
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackData | null>(null);
 
-  const selectedArticle = mockArticles.find((a) => a.id === selectedArticleId);
+  const selectedArticle = exercise?.articles?.find((a) => a.id === selectedArticleId) || mockArticles.find((a) => a.id === selectedArticleId);
+  const articles = exercise?.articles || mockArticles;
 
+  // Calculate progress
+  const calculateProgress = () => {
+    if (claims.length === 0) return 0;
+    return Math.round((results.length / Math.max(claims.length, 1)) * 100);
+  };
+
+  // Calculate score
+  const calculateScore = () => {
+    if (results.length === 0) return 0;
+
+    const verifiedCount = results.length;
+    const accurateVerifications = results.filter(r => r.verdict === 'true' || r.verdict === 'false').length;
+    const avgConfidence = results.reduce((sum, r) => sum + r.confidence, 0) / results.length;
+
+    const verificationScore = (verifiedCount / Math.max(claims.length, 1)) * 40;
+    const accuracyScore = (accurateVerifications / Math.max(verifiedCount, 1)) * 40;
+    const confidenceScore = avgConfidence * 20;
+
+    return Math.round(verificationScore + accuracyScore + confidenceScore);
+  };
+
+  // Progress tracking
+  useEffect(() => {
+    const progress = calculateProgress();
+    onProgressUpdate?.(progress);
+  }, [claims, results]);
+
+  // Auto-save functionality
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      const currentState: VerificadorState = {
+        selectedArticleId,
+        claims,
+        results,
+      };
+      saveProgressUtil(exerciseId, currentState);
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [selectedArticleId, claims, results, exerciseId]);
+
+  // Handle claim extraction
   const handleClaimExtraction = (text: string, start: number, end: number) => {
     const newClaim: Claim = {
       id: `claim-${Date.now()}`,
@@ -21,6 +86,7 @@ export const VerificadorFakeNewsExercise: React.FC = () => {
     setClaims([...claims, newClaim]);
   };
 
+  // Handle claim verification
   const handleVerifyClaim = async (claimId: string) => {
     // Mock API call - simulate delay
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -43,51 +109,105 @@ export const VerificadorFakeNewsExercise: React.FC = () => {
     verified: results.some((r) => r.claimId === claim.id),
   }));
 
+  // Reset handler
   const handleReset = () => {
     setClaims([]);
     setResults([]);
+    setFeedback(null);
+    setShowFeedback(false);
   };
 
+  // Check/Verify handler
+  const handleCheck = () => {
+    const score = calculateScore();
+    const timeSpent = Math.floor(
+      (new Date().getTime() - startTime.getTime()) / 1000
+    );
+
+    if (claims.length === 0) {
+      setFeedback({
+        type: 'info',
+        title: 'Sin Afirmaciones',
+        message: 'Selecciona texto del artículo para extraer afirmaciones a verificar.',
+      });
+      setShowFeedback(true);
+      return;
+    }
+
+    if (results.length === 0) {
+      setFeedback({
+        type: 'error',
+        title: 'Sin Verificaciones',
+        message: 'Verifica al menos una afirmación antes de finalizar.',
+      });
+      setShowFeedback(true);
+      return;
+    }
+
+    const allVerified = results.length === claims.length;
+    const trueCount = results.filter((r) => r.verdict === 'true').length;
+    const falseCount = results.filter((r) => r.verdict === 'false').length;
+
+    setFeedback({
+      type: allVerified ? 'success' : 'partial',
+      title: allVerified ? '¡Verificación Completa!' : 'Verificación en Progreso',
+      message: allVerified
+        ? `¡Excelente trabajo! Has verificado todas las afirmaciones. ${trueCount} verdaderas, ${falseCount} falsas.`
+        : `Has verificado ${results.length} de ${claims.length} afirmaciones. Continúa verificando.`,
+      score: {
+        baseScore: score,
+        timeBonus: Math.max(0, 20 - timeSpent / 60),
+        accuracyBonus: allVerified ? 20 : 0,
+        totalScore: score,
+        mlCoins: Math.floor(score / 10),
+        xpGained: score * 2,
+      },
+      showConfetti: allVerified,
+    });
+    setShowFeedback(true);
+  };
+
+  // Actions ref for parent component
+  const actionsRef = useRef({
+    handleReset,
+    handleCheck,
+  });
+
   return (
-    <div className="min-h-screen bg-detective-bg p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="bg-white rounded-detective shadow-card p-6">
-          <h1 className="text-3xl font-bold text-detective-text mb-4">
-            Verificador de Noticias Falsas
-          </h1>
-          <p className="text-detective-text-secondary mb-4">
-            Analiza artículos sobre Marie Curie y verifica la veracidad de las afirmaciones.
-          </p>
+    <>
+      <DetectiveCard variant="default" padding="lg">
+        <div className="space-y-6">
+          {/* Exercise Description */}
+          <div className="bg-gradient-to-r from-detective-blue to-detective-orange rounded-detective p-6 text-white shadow-detective-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <Shield className="w-8 h-8" />
+              <h2 className="text-detective-2xl font-bold">Verificador de Noticias Falsas</h2>
+            </div>
+            <p className="text-detective-base opacity-90 mb-4">
+              Analiza artículos sobre Marie Curie y verifica la veracidad de las afirmaciones.
+            </p>
 
-          <div className="flex gap-4 items-center">
-            <label className="text-detective-text font-medium">Selecciona un artículo:</label>
-            <select
-              value={selectedArticleId}
-              onChange={(e) => {
-                setSelectedArticleId(e.target.value);
-                handleReset();
-              }}
-              className="px-4 py-2 border-2 border-gray-300 rounded-detective focus:border-detective-orange focus:outline-none"
-            >
-              {mockArticles.map((article) => (
-                <option key={article.id} value={article.id}>
-                  {article.title}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={handleReset}
-              className="px-4 py-2 bg-gray-200 text-detective-text rounded-detective hover:bg-gray-300 transition-colors font-medium"
-            >
-              Reiniciar
-            </button>
+            <div className="flex gap-4 items-center">
+              <label className="text-white font-medium">Selecciona un artículo:</label>
+              <select
+                value={selectedArticleId}
+                onChange={(e) => {
+                  setSelectedArticleId(e.target.value);
+                  handleReset();
+                }}
+                className="px-4 py-2 border-2 border-white/30 rounded-detective bg-white/10 text-white focus:border-white focus:outline-none transition-colors"
+              >
+                {articles.map((article) => (
+                  <option key={article.id} value={article.id} className="text-detective-text">
+                    {article.title}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
+          {/* Main Content - Article and Dashboard */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {selectedArticle && (
               <ArticleParser
                 article={selectedArticle}
@@ -95,40 +215,72 @@ export const VerificadorFakeNewsExercise: React.FC = () => {
                 highlightedClaims={highlightedClaims}
               />
             )}
-          </div>
-          <div>
             <FactCheckDashboard
               claims={claims}
               results={results}
               onVerifyClaim={handleVerifyClaim}
             />
           </div>
-        </div>
 
-        {/* Score Summary */}
-        {results.length > 0 && (
-          <div className="bg-gradient-to-r from-detective-orange to-detective-gold text-white rounded-detective shadow-lg p-6">
-            <h3 className="text-2xl font-bold mb-2">Resumen de Verificación</h3>
-            <p className="mb-4">Has verificado {results.length} afirmación(es).</p>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white/20 rounded p-3">
-                <p className="text-3xl font-bold">{results.filter((r) => r.verdict === 'true').length}</p>
-                <p className="text-sm">Verdaderas</p>
+          {/* Score Summary */}
+          {results.length > 0 && (
+            <DetectiveCard variant="default" padding="lg">
+              <h3 className="text-detective-2xl font-bold mb-4 text-detective-text">
+                Resumen de Verificación
+              </h3>
+              <p className="text-detective-text-secondary mb-4">
+                Has verificado {results.length} afirmación(es).
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-green-50 border-2 border-green-200 rounded-detective p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                    <p className="text-3xl font-bold text-green-600">
+                      {results.filter((r) => r.verdict === 'true').length}
+                    </p>
+                  </div>
+                  <p className="text-sm text-detective-text">Verdaderas</p>
+                </div>
+                <div className="bg-red-50 border-2 border-red-200 rounded-detective p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <XCircle className="w-6 h-6 text-red-600" />
+                    <p className="text-3xl font-bold text-red-600">
+                      {results.filter((r) => r.verdict === 'false').length}
+                    </p>
+                  </div>
+                  <p className="text-sm text-detective-text">Falsas</p>
+                </div>
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-detective p-4 text-center">
+                  <p className="text-3xl font-bold text-detective-blue mb-2">
+                    {Math.round((results.reduce((sum, r) => sum + r.confidence, 0) / results.length) * 100)}%
+                  </p>
+                  <p className="text-sm text-detective-text">Confianza Promedio</p>
+                </div>
               </div>
-              <div className="bg-white/20 rounded p-3">
-                <p className="text-3xl font-bold">{results.filter((r) => r.verdict === 'false').length}</p>
-                <p className="text-sm">Falsas</p>
-              </div>
-              <div className="bg-white/20 rounded p-3">
-                <p className="text-3xl font-bold">
-                  {Math.round((results.reduce((sum, r) => sum + r.confidence, 0) / results.length) * 100)}%
-                </p>
-                <p className="text-sm">Confianza Promedio</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+            </DetectiveCard>
+          )}
+        </div>
+      </DetectiveCard>
+
+      {/* Feedback Modal */}
+      {feedback && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          feedback={feedback}
+          onClose={() => {
+            setShowFeedback(false);
+            if (feedback.type === 'success' && onComplete) {
+              const timeSpent = Math.floor(
+                (new Date().getTime() - startTime.getTime()) / 1000
+              );
+              onComplete(calculateScore(), timeSpent);
+            }
+          }}
+          onRetry={() => {
+            setShowFeedback(false);
+          }}
+        />
+      )}
+    </>
   );
 };

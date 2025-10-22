@@ -11,7 +11,7 @@ export interface TimelineEvent {
 
 export interface TimelineData extends BaseExercise {
   events: TimelineEvent[];
-  correctOrder: string[]; // Array of event IDs in correct chronological order
+  correctOrder?: string[]; // Optional - if not provided, will be calculated by sorting events by year
 }
 
 export interface DraggedEvent extends TimelineEvent {

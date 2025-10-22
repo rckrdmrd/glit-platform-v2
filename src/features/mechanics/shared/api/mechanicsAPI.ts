@@ -264,9 +264,24 @@ export const submitExercise = async (
       return await mockSubmitExercise(submission);
     }
 
+    // Transform frontend submission to backend format
+    // Ensure startedAt is not in the future (account for clock skew)
+    const calculatedStartedAt = submission.metadata?.startedAt
+      ? submission.metadata.startedAt.getTime()
+      : Date.now() - (submission.timeSpent * 1000);
+
+    const backendPayload = {
+      answers: submission.answers,
+      startedAt: Math.min(calculatedStartedAt, Date.now() - 1000), // Ensure it's at least 1 second in the past
+      hintsUsed: submission.hintsUsed || 0,
+      powerupsUsed: [] // TODO: Add powerups support
+    };
+
+    console.log('[submitExercise] Sending payload:', JSON.stringify(backendPayload, null, 2));
+
     const { data } = await apiClient.post<ApiResponse<SubmissionResponse>>(
-      API_ENDPOINTS.mechanics.submit,
-      submission
+      `/educational/exercises/${submission.mechanicId}/submit`,
+      backendPayload
     );
 
     return data.data;

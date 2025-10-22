@@ -19,7 +19,9 @@ import {
   Star,
   Trophy,
   ChevronRight,
-  Loader2
+  Loader2,
+  RotateCcw,
+  Check
 } from 'lucide-react';
 import type { FeedbackData } from '@shared/components/mechanics/mechanicsTypes';
 import { getExercise, saveExerciseProgress, submitExercise, getExerciseHints } from '@/services/api/educationalAPI';
@@ -49,6 +51,7 @@ interface ExerciseProgress {
   score: number;
   hintsUsed: number;
   timeSpent: number;
+  powerupsUsed?: string[];
 }
 
 // ============================================================================
@@ -161,7 +164,7 @@ export default function ExercisePage() {
 
         // Map API response to ExerciseData format
         // Handle both 'type' and 'exercise_type' fields from backend
-        const exerciseType = exerciseData.type || exerciseData.exercise_type || exerciseData.exerciseType || 'crucigrama_cientifico';
+        const exerciseType = exerciseData.type || exerciseData.exercise_type || (exerciseData as any).exerciseType || 'crucigrama_cientifico';
 
         const mappedExercise: ExerciseData = {
           id: exerciseData.id,
@@ -224,9 +227,9 @@ export default function ExercisePage() {
           setMechanicComponent(() => module.default || module.CrucigramaExercise || module);
         }
 
-        // Show warning but don't block the UI
+        // Show info but don't block the UI
         setFeedback({
-          type: 'warning',
+          type: 'info',
           title: 'Modo sin conexión',
           message: 'No se pudo conectar con el servidor. Estás viendo datos de ejemplo.',
         });
@@ -299,29 +302,43 @@ export default function ExercisePage() {
     if (!exerciseId) return;
 
     try {
-      const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
-
       // Submit exercise via API
       const result = await submitExercise(exerciseId, {
         answers: progress,
-        timeSpent,
-        hintsUsed: progress.hintsUsed,
+        startedAt: startTime.getTime(), // Send start timestamp instead of timeSpent
+        hintsUsed: progress.hintsUsed || 0,
+        powerupsUsed: progress.powerupsUsed || [],
       });
+
+      // Build feedback message
+      let feedbackMessage = `Has obtenido ${result.score} puntos. Ganaste ${result.rewards.xp} XP y ${result.rewards.mlCoins} ML Coins.`;
+
+      // Add bonus information if present
+      if (result.rewards.bonuses && result.rewards.bonuses.length > 0) {
+        const bonusDetails = result.rewards.bonuses.map(b => `+${b.amount} ${b.type}`).join(', ');
+        feedbackMessage += ` Bonos: ${bonusDetails}`;
+      }
+
+      // Add rank up celebration if present
+      if (result.rankUp) {
+        feedbackMessage += `\n\n¡Felicidades! Has subido de rango: ${result.rankUp.oldRank} → ${result.rankUp.newRank}`;
+        if (result.rankUp.unlockedFeatures.length > 0) {
+          feedbackMessage += `\nNuevas funciones desbloqueadas: ${result.rankUp.unlockedFeatures.join(', ')}`;
+        }
+      }
 
       // Display submission results
       setFeedback({
         type: 'success',
-        title: result.success ? 'Ejercicio Completado' : 'Ejercicio Enviado',
-        message: result.success
-          ? `Has obtenido ${result.score} puntos. Ganaste ${result.xpEarned} XP y ${result.mlCoinsEarned} ML Coins.`
-          : 'Tu respuesta ha sido enviada exitosamente. El profesor la revisará pronto.',
-        showConfetti: result.success && result.score >= 80,
+        title: result.isPerfect ? '¡Perfecto!' : 'Ejercicio Completado',
+        message: feedbackMessage,
+        showConfetti: result.isPerfect || result.score >= 80 || !!result.rankUp,
       });
       setShowFeedback(true);
 
       // Update coins if earned
-      if (result.mlCoinsEarned) {
-        setAvailableCoins((prev) => prev + result.mlCoinsEarned);
+      if (result.rewards.mlCoins) {
+        setAvailableCoins((prev) => prev + result.rewards.mlCoins);
       }
     } catch (error) {
       console.error('Error submitting exercise:', error);
@@ -358,10 +375,22 @@ export default function ExercisePage() {
     }
   };
 
-  const handleProgressUpdate = (newProgress: Partial<ExerciseProgress>) => {
+  const handleProgressUpdate = React.useCallback((newProgress: Partial<ExerciseProgress>) => {
     setProgress((prev) => ({ ...prev, ...newProgress }));
     setHasUnsavedChanges(true);
-  };
+  }, []);
+
+  // Refs for mechanic callbacks
+  const mechanicActionsRef = React.useRef<{
+    handleReset?: () => void;
+    handleCheck?: () => void;
+    specificActions?: Array<{
+      label: string;
+      icon?: React.ReactNode;
+      onClick: () => void;
+      variant?: 'primary' | 'secondary' | 'blue' | 'gold';
+    }>;
+  }>({});
 
   // ============================================================================
   // RENDER HELPERS
@@ -418,7 +447,7 @@ export default function ExercisePage() {
         <GamifiedHeader user={user} onLogout={() => navigate('/login')} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <EnhancedCard variant="primary" padding="lg" hover={false}>
+          <DetectiveCard hoverable={false}>
             <div className="flex items-center justify-center py-12">
               <motion.div
                 animate={{ rotate: 360 }}
@@ -428,7 +457,7 @@ export default function ExercisePage() {
               </motion.div>
             </div>
             <p className="text-center text-detective-text font-semibold mt-4">Cargando ejercicio...</p>
-          </EnhancedCard>
+          </DetectiveCard>
         </div>
       </div>
     );
@@ -470,73 +499,74 @@ export default function ExercisePage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Breadcrumb Navigation - Compact */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
-          <div className="py-2 px-3">
-            <nav className="flex items-center gap-1.5 text-xs text-detective-text-secondary">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="hover:text-detective-orange transition-colors"
-              >
-                Dashboard
-              </button>
-              <ChevronRight className="w-3 h-3" />
-              <button
-                onClick={() => navigate(`/module/${moduleId}`)}
-                className="hover:text-detective-orange transition-colors"
-              >
-                {exercise.moduleTitle || 'Módulo'}
-              </button>
-              <ChevronRight className="w-3 h-3" />
-              <span className="text-detective-text font-semibold">{exercise.title}</span>
-            </nav>
+        {/* Unified Exercise Header */}
+        <DetectiveCard hoverable={false} className="mb-6">
+          {/* Breadcrumb Navigation */}
+          <nav className="flex items-center gap-2 text-sm text-detective-text-secondary mb-4">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="hover:text-detective-orange transition-colors"
+            >
+              Dashboard
+            </button>
+            <ChevronRight className="w-4 h-4" />
+            <button
+              onClick={() => navigate(`/module/${moduleId}`)}
+              className="hover:text-detective-orange transition-colors"
+            >
+              {exercise.moduleTitle || 'Módulo'}
+            </button>
+            <ChevronRight className="w-4 h-4" />
+            <span className="text-detective-text font-semibold">{exercise.title}</span>
+          </nav>
+
+          {/* Exercise Info */}
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-2xl font-bold text-detective-text">
+              {exercise.title}
+            </h1>
+            <span
+              className={`px-3 py-1 rounded-lg text-sm font-bold ${getDifficultyColor(
+                exercise.difficulty
+              )}`}
+            >
+              {getDifficultyLabel(exercise.difficulty)}
+            </span>
           </div>
-        </div>
+          <p className="text-detective-text-secondary mb-4">{exercise.description}</p>
 
-        {/* Exercise Header - Compact */}
-        <EnhancedCard variant="default" padding="md" hover={false} className="mb-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-lg lg:text-xl font-bold text-detective-text">
-                  {exercise.title}
-                </h1>
-                <span
-                  className={`px-2 py-0.5 rounded-lg text-xs font-bold ${getDifficultyColor(
-                    exercise.difficulty
-                  )}`}
-                >
-                  {getDifficultyLabel(exercise.difficulty)}
-                </span>
+          {/* Exercise Stats */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-detective-orange" />
+              <div>
+                <p className="text-xs text-detective-text-secondary">Tiempo estimado</p>
+                <p className="text-sm font-bold text-detective-text">{Math.floor(exercise.estimatedTime / 60)} minutos</p>
               </div>
-              <p className="text-sm text-detective-text-secondary">{exercise.description}</p>
             </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5 text-detective-text">
-                <Clock className="w-4 h-4 text-detective-orange" />
-                <div>
-                  <p className="text-xs text-detective-text-secondary">Tiempo</p>
-                  <p className="text-sm font-bold">{Math.floor(exercise.estimatedTime / 60)}min</p>
-                </div>
+            <div className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-detective-gold" />
+              <div>
+                <p className="text-xs text-detective-text-secondary">Puntos</p>
+                <p className="text-sm font-bold text-detective-text">{exercise.points} pts</p>
               </div>
-              <div className="flex items-center gap-1.5 text-detective-text">
-                <Star className="w-4 h-4 text-detective-gold" />
-                <div>
-                  <p className="text-xs text-detective-text-secondary">Puntos</p>
-                  <p className="text-sm font-bold">{exercise.points}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 text-detective-text">
-                <Trophy className="w-4 h-4 text-detective-orange" />
-                <div>
-                  <p className="text-xs text-detective-text-secondary">Tipo</p>
-                  <p className="text-xs font-bold">{exercise.type}</p>
-                </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-detective-orange" />
+              <div>
+                <p className="text-xs text-detective-text-secondary">Tipo</p>
+                <p className="text-sm font-bold text-detective-text capitalize">{exercise.type.replace(/_/g, ' ')}</p>
               </div>
             </div>
           </div>
-        </EnhancedCard>
+
+          {/* Unsaved Changes Indicator */}
+          {hasUnsavedChanges && (
+            <p className="text-xs text-orange-600 italic mt-3">
+              ⚠️ Tienes cambios sin guardar
+            </p>
+          )}
+        </DetectiveCard>
 
         {/* Main Grid Layout - Compact */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
@@ -551,7 +581,7 @@ export default function ExercisePage() {
               >
                 <Suspense
                   fallback={
-                    <EnhancedCard variant="primary" padding="md" hover={false}>
+                    <DetectiveCard hoverable={false}>
                       <div className="flex items-center justify-center py-8">
                         <motion.div
                           animate={{ rotate: 360 }}
@@ -561,13 +591,14 @@ export default function ExercisePage() {
                         </motion.div>
                       </div>
                       <p className="text-center text-sm text-detective-text-secondary mt-2">Cargando mecánica...</p>
-                    </EnhancedCard>
+                    </DetectiveCard>
                   }
                 >
                   <MechanicComponent
                     exercise={adaptedExercise || exercise}
                     onComplete={handleComplete}
                     onProgressUpdate={handleProgressUpdate}
+                    actionsRef={mechanicActionsRef}
                   />
                 </Suspense>
               </motion.div>
@@ -576,130 +607,154 @@ export default function ExercisePage() {
 
           {/* Sidebar - Compact */}
           <div className="lg:col-span-1">
-            <div className="space-y-3">
-              {/* Score Display - Compact */}
-              <EnhancedCard variant="success" hover={false} padding="sm">
-                <h3 className="text-xs font-bold text-detective-text mb-2">
+            <div className="space-y-4">
+              {/* Actions Card */}
+              <DetectiveCard hoverable={false}>
+                <h3 className="text-sm font-bold text-detective-text mb-3">Acciones</h3>
+                <div className="space-y-2">
+                  {/* Navigation Actions */}
+                  <DetectiveButton
+                    variant="blue"
+                    size="sm"
+                    icon={<ArrowLeft className="w-4 h-4" />}
+                    onClick={() => navigate(`/module/${moduleId}`)}
+                    className="w-full"
+                  >
+                    Volver
+                  </DetectiveButton>
+
+                  <DetectiveButton
+                    variant="secondary"
+                    size="sm"
+                    icon={<Save className="w-4 h-4" />}
+                    onClick={handleSaveProgress}
+                    disabled={!hasUnsavedChanges}
+                    className="w-full"
+                  >
+                    Guardar
+                  </DetectiveButton>
+
+                  <DetectiveButton
+                    variant="secondary"
+                    size="sm"
+                    icon={<SkipForward className="w-4 h-4" />}
+                    onClick={handleSkip}
+                    className="w-full"
+                  >
+                    Omitir
+                  </DetectiveButton>
+
+                  <div className="border-t border-detective-border my-2"></div>
+
+                  {/* Mechanic Actions */}
+                  <DetectiveButton
+                    variant="blue"
+                    size="sm"
+                    icon={<RotateCcw className="w-4 h-4" />}
+                    onClick={() => mechanicActionsRef.current.handleReset?.()}
+                    className="w-full"
+                  >
+                    Reiniciar
+                  </DetectiveButton>
+
+                  <DetectiveButton
+                    variant="gold"
+                    size="sm"
+                    icon={<Check className="w-4 h-4" />}
+                    onClick={() => mechanicActionsRef.current.handleCheck?.()}
+                    className="w-full"
+                  >
+                    Verificar
+                  </DetectiveButton>
+
+                  {/* Specific Mechanic Actions */}
+                  {mechanicActionsRef.current.specificActions && mechanicActionsRef.current.specificActions.length > 0 && (
+                    <>
+                      {mechanicActionsRef.current.specificActions.map((action, index) => (
+                        <DetectiveButton
+                          key={index}
+                          variant={action.variant || 'secondary'}
+                          size="sm"
+                          icon={action.icon}
+                          onClick={action.onClick}
+                          className="w-full"
+                        >
+                          {action.label}
+                        </DetectiveButton>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Hints Button */}
+                  {hints.length > 0 && (
+                    <HintSystem
+                      hints={hints}
+                      onUseHint={handleUseHint}
+                      availableCoins={availableCoins}
+                      className="w-full"
+                    />
+                  )}
+
+                  <div className="border-t border-detective-border my-2"></div>
+
+                  {/* Submit Button */}
+                  <DetectiveButton
+                    variant="primary"
+                    size="sm"
+                    icon={<Send className="w-4 h-4" />}
+                    onClick={handleSubmit}
+                    className="w-full"
+                  >
+                    Enviar Respuestas
+                  </DetectiveButton>
+                </div>
+              </DetectiveCard>
+
+              {/* Score Display */}
+              <DetectiveCard hoverable={false}>
+                <h3 className="text-sm font-bold text-detective-text mb-3">
                   Puntuación
                 </h3>
                 <ScoreDisplay score={progress.score} maxScore={exercise.points} size="sm" />
-              </EnhancedCard>
+              </DetectiveCard>
 
-              {/* Timer - Compact */}
-              <EnhancedCard variant="info" hover={false} padding="sm">
-                <h3 className="text-xs font-bold text-detective-text mb-2">Tiempo</h3>
+              {/* Timer */}
+              <DetectiveCard hoverable={false}>
+                <h3 className="text-sm font-bold text-detective-text mb-3">Tiempo</h3>
                 <TimerWidget
                   initialTime={0}
                   countDown={false}
                   showWarning={false}
                 />
-              </EnhancedCard>
+              </DetectiveCard>
 
-              {/* Progress Tracker - Compact */}
-              <EnhancedCard variant="primary" hover={false} padding="sm">
-                <h3 className="text-xs font-bold text-detective-text mb-2">Progreso</h3>
+              {/* Progress Tracker */}
+              <DetectiveCard hoverable={false}>
+                <h3 className="text-sm font-bold text-detective-text mb-3">Progreso</h3>
                 <ProgressTracker
                   current={progress.currentStep}
                   total={progress.totalSteps}
                   variant="circular"
                   className="mx-auto"
                 />
-                <p className="text-center text-xs text-detective-text-secondary mt-1">
+                <p className="text-center text-sm text-detective-text-secondary mt-2">
                   {progress.currentStep} de {progress.totalSteps}
                 </p>
-              </EnhancedCard>
+              </DetectiveCard>
 
-              {/* Hint System - Compact */}
-              {hints.length > 0 && (
-                <EnhancedCard variant="warning" hover={false} padding="sm">
-                  <HintSystem
-                    hints={hints}
-                    onUseHint={handleUseHint}
-                    availableCoins={availableCoins}
-                  />
-                </EnhancedCard>
-              )}
-
-              {/* ML Coins Display - Compact */}
-              <EnhancedCard variant="warning" hover={false} padding="sm">
+              {/* ML Coins Display */}
+              <DetectiveCard hoverable={false}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Star className="w-4 h-4 text-detective-gold" />
-                    <span className="text-xs font-bold text-detective-text">ML Coins</span>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-5 h-5 text-detective-gold" />
+                    <span className="text-sm font-bold text-detective-text">ML Coins</span>
                   </div>
-                  <span className="text-base font-bold text-detective-gold">{availableCoins}</span>
+                  <span className="text-xl font-bold text-detective-gold">{availableCoins}</span>
                 </div>
-              </EnhancedCard>
-
-              {/* Stats - Compact */}
-              <EnhancedCard variant="default" hover={false} padding="sm">
-                <h3 className="text-xs font-bold text-detective-text mb-2">Estadísticas</h3>
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-detective-text-secondary">Pistas usadas</span>
-                    <span className="font-bold text-detective-text">{progress.hintsUsed}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-detective-text-secondary">Intentos</span>
-                    <span className="font-bold text-detective-text">1</span>
-                  </div>
-                </div>
-              </EnhancedCard>
+              </DetectiveCard>
             </div>
           </div>
         </div>
-
-        {/* Action Footer - Compact */}
-        <EnhancedCard variant="default" padding="sm" hover={false} className="sticky bottom-4 z-10">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <DetectiveButton
-                variant="blue"
-                size="sm"
-                icon={<ArrowLeft className="w-3 h-3" />}
-                onClick={() => navigate(`/module/${moduleId}`)}
-              >
-                Volver
-              </DetectiveButton>
-              {hasUnsavedChanges && (
-                <span className="text-xs text-detective-text-secondary italic">
-                  Sin guardar
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <DetectiveButton
-                variant="secondary"
-                size="sm"
-                icon={<Save className="w-3 h-3" />}
-                onClick={handleSaveProgress}
-                disabled={!hasUnsavedChanges}
-              >
-                Guardar
-              </DetectiveButton>
-              <DetectiveButton
-                variant="secondary"
-                size="sm"
-                icon={<SkipForward className="w-3 h-3" />}
-                onClick={handleSkip}
-              >
-                Omitir
-              </DetectiveButton>
-              <DetectiveButton
-                variant="primary"
-                size="sm"
-                icon={<Send className="w-3 h-3" />}
-                onClick={handleSubmit}
-              >
-                Enviar
-              </DetectiveButton>
-            </div>
-          </div>
-        </EnhancedCard>
-
-        {/* Bottom Spacing */}
-        <div className="h-12" />
       </div>
 
       {/* Feedback Modal */}

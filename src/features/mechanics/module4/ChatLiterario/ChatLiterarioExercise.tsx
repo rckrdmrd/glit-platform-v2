@@ -1,24 +1,43 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Bot } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Send, User, Bot, MessageCircle, Award } from 'lucide-react';
+import { DetectiveCard } from '@shared/components/base/DetectiveCard';
+import { DetectiveButton } from '@shared/components/base/DetectiveButton';
+import { FeedbackModal } from '@shared/components/mechanics/FeedbackModal';
+import { FeedbackData } from '@shared/components/mechanics/mechanicsTypes';
+import { ExerciseProps, ChatLiterarioState, Message } from './chatLiterarioTypes';
+import { saveProgress as saveProgressUtil, loadProgress, clearProgress } from '@/shared/utils/storage';
 
-interface Message {
-  id: string;
-  sender: 'user' | 'marie' | 'pierre';
-  text: string;
-  timestamp: Date;
-}
-
-export const ChatLiterarioExercise: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      sender: 'marie',
-      text: '¡Bonjour! Soy Marie Curie. Estoy trabajando en mi laboratorio investigando materiales radioactivos. ¿En qué puedo ayudarte hoy?',
-      timestamp: new Date(),
-    },
-  ]);
+export const ChatLiterarioExercise: React.FC<ExerciseProps> = ({
+  moduleId,
+  lessonId,
+  exerciseId,
+  userId,
+  onComplete,
+  onExit,
+  onProgressUpdate,
+  initialData,
+  difficulty = 'medium',
+  exercise,
+}) => {
+  // State management
+  const [messages, setMessages] = useState<Message[]>(
+    initialData?.messages || [
+      {
+        id: '1',
+        sender: 'marie',
+        text: '¡Bonjour! Soy Marie Curie. Estoy trabajando en mi laboratorio investigando materiales radioactivos. ¿En qué puedo ayudarte hoy?',
+        timestamp: new Date(),
+      },
+    ]
+  );
   const [input, setInput] = useState('');
-  const [activeCharacter, setActiveCharacter] = useState<'marie' | 'pierre'>('marie');
+  const [activeCharacter, setActiveCharacter] = useState<'marie' | 'pierre'>(
+    initialData?.activeCharacter || 'marie'
+  );
+  const [startTime] = useState(new Date());
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const responses = {
@@ -36,6 +55,42 @@ export const ChatLiterarioExercise: React.FC = () => {
     ],
   };
 
+  // Calculate progress
+  const calculateProgress = () => {
+    const minMessages = exercise?.minMessages || 5;
+    const userMessages = messages.filter(m => m.sender === 'user').length;
+    return Math.min(Math.round((userMessages / minMessages) * 100), 100);
+  };
+
+  // Calculate score
+  const calculateScore = () => {
+    const userMessages = messages.filter(m => m.sender === 'user').length;
+    const minMessages = exercise?.minMessages || 5;
+    const conversationScore = Math.min((userMessages / minMessages) * 70, 70);
+    const engagementScore = userMessages > minMessages ? 30 : (userMessages / minMessages) * 30;
+    return Math.round(conversationScore + engagementScore);
+  };
+
+  // Progress tracking
+  useEffect(() => {
+    const progress = calculateProgress();
+    onProgressUpdate?.(progress);
+  }, [messages]);
+
+  // Auto-save functionality
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      const currentState: ChatLiterarioState = {
+        messages,
+        activeCharacter,
+      };
+      saveProgressUtil(exerciseId, currentState);
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [messages, activeCharacter, exerciseId]);
+
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -66,6 +121,64 @@ export const ChatLiterarioExercise: React.FC = () => {
     }, 1000);
   };
 
+  // Reset handler
+  const handleReset = () => {
+    setMessages([
+      {
+        id: '1',
+        sender: 'marie',
+        text: '¡Bonjour! Soy Marie Curie. Estoy trabajando en mi laboratorio investigando materiales radioactivos. ¿En qué puedo ayudarte hoy?',
+        timestamp: new Date(),
+      },
+    ]);
+    setInput('');
+    setActiveCharacter('marie');
+    setFeedback(null);
+    setShowFeedback(false);
+  };
+
+  // Check/Verify handler
+  const handleCheck = () => {
+    const score = calculateScore();
+    const timeSpent = Math.floor(
+      (new Date().getTime() - startTime.getTime()) / 1000
+    );
+    const userMessages = messages.filter(m => m.sender === 'user').length;
+    const minMessages = exercise?.minMessages || 5;
+
+    if (userMessages < minMessages) {
+      setFeedback({
+        type: 'info',
+        title: 'Conversación Incompleta',
+        message: `Has enviado ${userMessages} de ${minMessages} mensajes mínimos. Continúa conversando con los personajes.`,
+      });
+      setShowFeedback(true);
+      return;
+    }
+
+    setFeedback({
+      type: 'success',
+      title: '¡Conversación Exitosa!',
+      message: `¡Excelente! Has mantenido una conversación interesante con los personajes históricos. Total de mensajes: ${userMessages}.`,
+      score: {
+        baseScore: score,
+        timeBonus: Math.max(0, 10 - timeSpent / 120),
+        accuracyBonus: userMessages > minMessages * 1.5 ? 20 : 10,
+        totalScore: score,
+        mlCoins: Math.floor(score / 10),
+        xpGained: score * 2,
+      },
+      showConfetti: true,
+    });
+    setShowFeedback(true);
+  };
+
+  // Actions ref for parent component
+  const actionsRef = useRef({
+    handleReset,
+    handleCheck,
+  });
+
   const getAvatar = (sender: Message['sender']) => {
     if (sender === 'user') {
       return <User className="w-6 h-6 text-white" />;
@@ -80,91 +193,146 @@ export const ChatLiterarioExercise: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-detective-bg p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white rounded-detective shadow-card p-6">
-          <h1 className="text-3xl font-bold text-detective-text mb-4">Chat Literario con Marie Curie</h1>
-          <p className="text-detective-text-secondary mb-4">
-            Conversa con Marie Curie y Pierre Curie sobre sus descubrimientos científicos.
-          </p>
+    <>
+      <DetectiveCard variant="default" padding="lg">
+        <div className="space-y-6">
+          {/* Exercise Description */}
+          <div className="bg-gradient-to-r from-detective-blue to-detective-orange rounded-detective p-6 text-white shadow-detective-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <MessageCircle className="w-8 h-8" />
+              <h2 className="text-detective-2xl font-bold">Chat Literario con Marie Curie</h2>
+            </div>
+            <p className="text-detective-base opacity-90">
+              Conversa con Marie Curie y Pierre Curie sobre sus descubrimientos científicos.
+            </p>
+          </div>
 
+          {/* Character Selection */}
           <div className="flex gap-3">
-            <button
+            <DetectiveButton
+              variant={activeCharacter === 'marie' ? 'primary' : 'secondary'}
+              size="md"
               onClick={() => setActiveCharacter('marie')}
-              className={`flex-1 py-2 px-4 rounded-detective font-medium transition-colors ${
-                activeCharacter === 'marie'
-                  ? 'bg-detective-orange text-white'
-                  : 'bg-gray-200 text-detective-text hover:bg-gray-300'
-              }`}
+              className="flex-1"
             >
               Marie Curie
-            </button>
-            <button
+            </DetectiveButton>
+            <DetectiveButton
+              variant={activeCharacter === 'pierre' ? 'gold' : 'secondary'}
+              size="md"
               onClick={() => setActiveCharacter('pierre')}
-              className={`flex-1 py-2 px-4 rounded-detective font-medium transition-colors ${
-                activeCharacter === 'pierre'
-                  ? 'bg-detective-gold text-white'
-                  : 'bg-gray-200 text-detective-text hover:bg-gray-300'
-              }`}
+              className="flex-1"
             >
               Pierre Curie
-            </button>
+            </DetectiveButton>
           </div>
-        </div>
 
-        <div className="bg-white rounded-detective shadow-card flex flex-col" style={{ height: '600px' }}>
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map(message => (
-              <div
-                key={message.id}
-                className={`flex gap-3 ${message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-              >
-                <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${getAvatarBg(message.sender)}`}>
-                  {getAvatar(message.sender)}
-                </div>
-                <div className={`flex-1 ${message.sender === 'user' ? 'text-right' : 'text-left'}`}>
-                  <div className={`inline-block px-4 py-3 rounded-detective max-w-[80%] ${
-                    message.sender === 'user'
-                      ? 'bg-detective-blue text-white'
-                      : 'bg-detective-bg border-2 border-gray-200 text-detective-text'
-                  }`}>
-                    {message.sender !== 'user' && (
-                      <p className="font-bold text-sm mb-1 text-detective-orange">
-                        {message.sender === 'marie' ? 'Marie Curie' : 'Pierre Curie'}
-                      </p>
-                    )}
-                    <p>{message.text}</p>
+          {/* Chat Interface */}
+          <DetectiveCard variant="default" padding="none" className="flex flex-col" style={{ height: '600px' }}>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {messages.map(message => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex gap-3 ${message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                >
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${getAvatarBg(message.sender)}`}>
+                    {getAvatar(message.sender)}
                   </div>
-                  <p className="text-detective-text-secondary text-xs mt-1">
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="border-t border-gray-200 p-4">
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={`Escribe tu mensaje a ${activeCharacter === 'marie' ? 'Marie' : 'Pierre'}...`}
-                className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-detective focus:border-detective-orange focus:outline-none"
-              />
-              <button
-                onClick={handleSend}
-                className="px-6 py-2 bg-detective-orange text-white rounded-detective hover:bg-detective-orange-dark transition-colors font-medium flex items-center gap-2"
-              >
-                <Send className="w-5 h-5" />
-                Enviar
-              </button>
+                  <div className={`flex-1 ${message.sender === 'user' ? 'text-right' : 'text-left'}`}>
+                    <div className={`inline-block px-4 py-3 rounded-detective max-w-[80%] ${
+                      message.sender === 'user'
+                        ? 'bg-detective-blue text-white'
+                        : 'bg-detective-bg border-2 border-gray-200 text-detective-text'
+                    }`}>
+                      {message.sender !== 'user' && (
+                        <p className="font-bold text-sm mb-1 text-detective-orange">
+                          {message.sender === 'marie' ? 'Marie Curie' : 'Pierre Curie'}
+                        </p>
+                      )}
+                      <p>{message.text}</p>
+                    </div>
+                    <p className="text-detective-text-secondary text-xs mt-1">
+                      {message.timestamp.toLocaleTimeString()}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
-          </div>
+
+            <div className="border-t border-gray-200 p-4">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder={`Escribe tu mensaje a ${activeCharacter === 'marie' ? 'Marie' : 'Pierre'}...`}
+                  className="flex-1 px-4 py-2 border-2 border-detective-border-medium rounded-detective focus:border-detective-orange focus:outline-none transition-colors"
+                />
+                <DetectiveButton
+                  variant="primary"
+                  size="md"
+                  onClick={handleSend}
+                  icon={<Send className="w-5 h-5" />}
+                  disabled={!input.trim()}
+                >
+                  Enviar
+                </DetectiveButton>
+              </div>
+            </div>
+          </DetectiveCard>
+
+          {/* Stats Card */}
+          <DetectiveCard variant="default" padding="md">
+            <div className="flex items-center gap-2 mb-3">
+              <Award className="w-5 h-5 text-detective-orange" />
+              <h3 className="font-bold text-detective-text">Estadísticas</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-detective-text-secondary text-sm">Mensajes enviados</p>
+                <p className="text-2xl font-bold text-detective-text">
+                  {messages.filter(m => m.sender === 'user').length}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-detective-text-secondary text-sm">Mensajes totales</p>
+                <p className="text-2xl font-bold text-detective-text">{messages.length}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-detective-text-secondary text-sm">Personaje activo</p>
+                <p className="text-2xl font-bold text-detective-text">
+                  {activeCharacter === 'marie' ? 'Marie' : 'Pierre'}
+                </p>
+              </div>
+            </div>
+          </DetectiveCard>
         </div>
-      </div>
-    </div>
+      </DetectiveCard>
+
+      {/* Feedback Modal */}
+      {feedback && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          feedback={feedback}
+          onClose={() => {
+            setShowFeedback(false);
+            if (feedback.type === 'success' && onComplete) {
+              const timeSpent = Math.floor(
+                (new Date().getTime() - startTime.getTime()) / 1000
+              );
+              onComplete(calculateScore(), timeSpent);
+            }
+          }}
+          onRetry={() => {
+            setShowFeedback(false);
+          }}
+        />
+      )}
+    </>
   );
 };

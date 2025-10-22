@@ -6,6 +6,7 @@ export interface CrucigramaCell {
   letter: string;
   isBlack: boolean;
   number?: number;
+  numbers?: number[]; // Support multiple clue numbers in same cell
   userInput?: string;
 }
 

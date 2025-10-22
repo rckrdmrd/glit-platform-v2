@@ -1,20 +1,43 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { ExerciseContainer } from '@shared/components/mechanics/ExerciseContainer';
+import React, { useState, useEffect } from 'react';
 import { DetectiveCard } from '@shared/components/base/DetectiveCard';
-import { DetectiveButton } from '@shared/components/base/DetectiveButton';
 import { FeedbackModal } from '@shared/components/mechanics/FeedbackModal';
 import { MatchingCard } from './MatchingCard';
-import { EmparejamientoData, MatchingCard as CardType } from './emparejamientoTypes';
+import { EmparejamientoData } from './emparejamientoTypes';
 import { calculateScore, FeedbackData } from '@shared/components/mechanics/mechanicsTypes';
-import { Check } from 'lucide-react';
 
-export const EmparejamientoExercise: React.FC<{ exercise: EmparejamientoData; onComplete?: () => void }> = ({ exercise, onComplete }) => {
+export interface EmparejamientoExerciseProps {
+  exercise: EmparejamientoData;
+  onComplete?: () => void;
+  onProgressUpdate?: (progress: any) => void;
+  actionsRef?: React.MutableRefObject<{
+    handleReset?: () => void;
+    handleCheck?: () => void;
+  }>;
+}
+
+export const EmparejamientoExercise: React.FC<EmparejamientoExerciseProps> = ({ exercise, onComplete, onProgressUpdate, actionsRef }) => {
   const [cards, setCards] = useState(exercise.cards.sort(() => Math.random() - 0.5));
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackData | null>(null);
   const [startTime] = useState(new Date());
+  const [hintsUsed] = useState(0);
+
+  // Notify parent of progress updates
+  React.useEffect(() => {
+    if (onProgressUpdate) {
+      const matched = cards.filter(c => c.isMatched).length;
+      const totalPairs = cards.length / 2;
+      const matchedPairs = matched / 2;
+      onProgressUpdate({
+        currentStep: matchedPairs,
+        totalSteps: totalPairs,
+        score: Math.floor((matchedPairs / totalPairs) * 100),
+        hintsUsed,
+        timeSpent: Math.floor((new Date().getTime() - startTime.getTime()) / 1000),
+      });
+    }
+  }, [cards, hintsUsed]);
 
   const handleCardClick = (cardId: string) => {
     if (!selectedCard) {
@@ -47,18 +70,48 @@ export const EmparejamientoExercise: React.FC<{ exercise: EmparejamientoData; on
     setShowFeedback(true);
   };
 
+  const handleReset = () => {
+    setCards(exercise.cards.map(c => ({ ...c, isMatched: false })).sort(() => Math.random() - 0.5));
+    setSelectedCard(null);
+    setFeedback(null);
+    setShowFeedback(false);
+  };
+
+  // Populate actionsRef for parent component
+  useEffect(() => {
+    if (actionsRef) {
+      actionsRef.current = {
+        handleReset,
+        handleCheck
+      };
+    }
+  }, [actionsRef, handleReset, handleCheck]);
+
   return (
-    <ExerciseContainer exercise={exercise}>
+    <>
       <DetectiveCard variant="default" padding="lg">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {cards.map(card => (
             <MatchingCard key={card.id} card={card} isSelected={selectedCard === card.id} onClick={() => handleCardClick(card.id)} />
           ))}
         </div>
-        <DetectiveButton variant="gold" icon={<Check />} onClick={handleCheck} className="w-full">Verificar</DetectiveButton>
       </DetectiveCard>
-      {feedback && <FeedbackModal isOpen={showFeedback} feedback={feedback} onClose={() => { setShowFeedback(false); if (feedback.type === 'success') onComplete?.(); }} />}
-    </ExerciseContainer>
+
+      {feedback && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          feedback={feedback}
+          onClose={() => {
+            setShowFeedback(false);
+            if (feedback.type === 'success') onComplete?.();
+          }}
+          onRetry={() => {
+            setShowFeedback(false);
+            handleReset();
+          }}
+        />
+      )}
+    </>
   );
 };
 

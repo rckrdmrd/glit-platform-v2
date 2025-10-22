@@ -1,18 +1,24 @@
 import { Route, Routes } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { LoadingFallback } from '@shared/components/LoadingFallback';
 import { RootRedirect } from '@shared/components/RootRedirect';
 import { ProtectedRoute } from '@shared/components/ProtectedRoute';
+import { useWebSocket } from '@/features/notifications/hooks/useWebSocket';
+import { useAuthStore } from '@/features/auth/store/authStore';
 
 // Critical pages - eager loading
 import LoginPage from './apps/student/pages/LoginPage';
 import RegisterPage from './apps/student/pages/RegisterPage';
+
+// Deprecated pages - kept for backward compatibility
+const EmailVerificationPage = lazy(() => import('./apps/student/pages/EmailVerificationPage'));
 
 // Lazy-loaded pages
 const DashboardPage = lazy(() => import('./apps/student/pages/DashboardComplete'));
 const ModuleDetailPage = lazy(() => import('./apps/student/pages/ModuleDetailPage'));
 const ExercisePage = lazy(() => import('./apps/student/pages/ExercisePage'));
 const ProfilePage = lazy(() => import('./apps/student/pages/ProfilePage'));
+const EnhancedProfilePage = lazy(() => import('./apps/student/pages/EnhancedProfilePage'));
 const GamificationPage = lazy(() => import('./apps/student/pages/GamificationPage'));
 const AchievementsPage = lazy(() => import('./apps/student/pages/AchievementsPage'));
 const LeaderboardPage = lazy(() => import('./apps/student/pages/LeaderboardPage'));
@@ -50,6 +56,17 @@ const TeacherStudentsPage = lazy(() => import('./apps/teacher/pages/TeacherStude
 const AdminDashboardPage = lazy(() => import('./apps/admin/pages/AdminDashboardPage'));
 
 export function App() {
+  const { user } = useAuthStore();
+
+  // Initialize WebSocket connection for real-time notifications
+  const { isConnected } = useWebSocket();
+
+  useEffect(() => {
+    if (user && isConnected) {
+      console.log('✅ WebSocket connected for user:', user.email);
+    }
+  }, [user, isConnected]);
+
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
@@ -57,6 +74,9 @@ export function App() {
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* Deprecated routes - kept for backward compatibility */}
+        <Route path="/email-verification" element={<EmailVerificationPage />} />
 
         {/* Rutas protegidas */}
         <Route
@@ -85,6 +105,14 @@ export function App() {
         />
         <Route
           path="/profile"
+          element={
+            <ProtectedRoute>
+              <EnhancedProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/legacy"
           element={
             <ProtectedRoute>
               <ProfilePage />

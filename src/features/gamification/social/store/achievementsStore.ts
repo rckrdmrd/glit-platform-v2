@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import type { Achievement, AchievementUnlockNotification, AchievementStats } from '../types/achievementsTypes';
 import { allAchievements } from '../mockData/achievementsMockData';
+import { getAchievements } from '../api/socialAPI';
 
 interface AchievementsStore {
   achievements: Achievement[];
@@ -13,6 +14,8 @@ interface AchievementsStore {
   recentUnlocks: AchievementUnlockNotification[];
   stats: AchievementStats;
   selectedCategory: string | null;
+  isLoading: boolean;
+  error: string | null;
 
   // Actions
   unlockAchievement: (achievementId: string) => void;
@@ -20,6 +23,9 @@ interface AchievementsStore {
   dismissNotification: (achievementId: string) => void;
   filterByCategory: (category: string | null) => void;
   refreshAchievements: () => void;
+
+  // API Sync
+  fetchAchievements: () => Promise<void>;
 }
 
 const calculateStats = (achievements: Achievement[]): AchievementStats => {
@@ -47,6 +53,8 @@ export const useAchievementsStore = create<AchievementsStore>((set) => ({
   recentUnlocks: [],
   stats: calculateStats(allAchievements),
   selectedCategory: null,
+  isLoading: false,
+  error: null,
 
   unlockAchievement: (achievementId: string) => {
     set((state) => {
@@ -121,5 +129,29 @@ export const useAchievementsStore = create<AchievementsStore>((set) => ({
     set((state) => ({
       stats: calculateStats(state.achievements),
     }));
+  },
+
+  /**
+   * Fetch achievements from backend
+   */
+  fetchAchievements: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const achievements = await getAchievements();
+      set({
+        achievements,
+        unlockedAchievements: achievements.filter((a) => a.isUnlocked),
+        stats: calculateStats(achievements),
+        isLoading: false,
+        error: null
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch achievements';
+      set({
+        isLoading: false,
+        error: errorMessage
+      });
+      console.error('Error fetching achievements:', error);
+    }
   },
 }));

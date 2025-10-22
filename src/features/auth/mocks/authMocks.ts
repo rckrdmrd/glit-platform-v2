@@ -121,12 +121,13 @@ export const mockRegister = async (data: {
   }
 
   // Crear nuevo usuario mock
+  // Note: emailVerified is now always true since email verification is disabled
   const newUser: MockUser = {
     id: String(MOCK_USERS.length + 1),
     email: data.email,
     fullName: data.fullName,
     role: 'student',
-    emailVerified: false
+    emailVerified: true // Always verified - email verification is disabled
   };
 
   // Agregar a la base de datos mock
@@ -134,7 +135,7 @@ export const mockRegister = async (data: {
 
   return {
     success: true,
-    message: 'Usuario registrado exitosamente. Por favor verifica tu email.',
+    message: 'Usuario registrado exitosamente. Ya puedes iniciar sesión.',
     user: newUser
   };
 };
@@ -184,6 +185,10 @@ export const mockPasswordReset = async (
 /**
  * Mock de verificación de email
  * Simula activación de cuenta
+ *
+ * @deprecated Since 2025-10 - Email verification is now disabled.
+ * All users are automatically verified upon registration.
+ * This function is kept for backward compatibility only.
  */
 export const mockEmailVerification = async (
   token: string
@@ -231,6 +236,10 @@ export const mockTwoFactorVerification = async (
 
 /**
  * Mock de reenvío de código de verificación
+ *
+ * @deprecated Since 2025-10 - Email verification is now disabled.
+ * All users are automatically verified upon registration.
+ * This function is kept for backward compatibility only.
  */
 export const mockResendVerificationCode = async (): Promise<MockPasswordRecoveryResponse> => {
   // Simular delay de red

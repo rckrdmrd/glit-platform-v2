@@ -76,6 +76,37 @@ export class AuthenticationError extends APIError {
 }
 
 /**
+ * Account Inactive Error
+ */
+export class AccountInactiveError extends APIError {
+  constructor(message: string = 'Account has been deactivated', data?: any) {
+    super(401, message, 'ACCOUNT_INACTIVE', data);
+    this.name = 'AccountInactiveError';
+  }
+}
+
+/**
+ * Account Suspended Error
+ */
+export class AccountSuspendedError extends APIError {
+  public readonly suspensionDetails?: {
+    isPermanent: boolean;
+    suspendedUntil?: string;
+    reason?: string;
+  };
+
+  constructor(
+    message: string = 'Account has been suspended',
+    suspensionDetails?: { isPermanent: boolean; suspendedUntil?: string; reason?: string },
+    data?: any
+  ) {
+    super(403, message, 'ACCOUNT_SUSPENDED', data);
+    this.name = 'AccountSuspendedError';
+    this.suspensionDetails = suspensionDetails;
+  }
+}
+
+/**
  * Authorization Error
  */
 export class AuthorizationError extends APIError {
@@ -172,6 +203,7 @@ export const handleAPIError = (error: unknown): APIError => {
     const { status, data } = axiosError.response;
     const message = data?.error?.message || data?.message || axiosError.message;
     const errorData = data?.error?.details || data?.details;
+    const errorCode = data?.error?.code || data?.code;
 
     // Map status codes to specific error types
     switch (status) {
@@ -179,9 +211,22 @@ export const handleAPIError = (error: unknown): APIError => {
         return new ValidationError(message || 'Bad request', errorData);
 
       case 401:
+        // Check for specific account status errors
+        if (errorCode === 'ACCOUNT_INACTIVE') {
+          return new AccountInactiveError(message || 'Your account has been deactivated', errorData);
+        }
         return new AuthenticationError(message || 'Authentication required', errorData);
 
       case 403:
+        // Check for account suspension
+        if (errorCode === 'ACCOUNT_SUSPENDED') {
+          const suspensionDetails = errorData?.suspension || errorData;
+          return new AccountSuspendedError(
+            message || 'Your account has been suspended',
+            suspensionDetails,
+            errorData
+          );
+        }
         return new AuthorizationError(message || 'Access forbidden', errorData);
 
       case 404:
@@ -288,6 +333,27 @@ export const formatErrorMessage = (error: unknown): string => {
 
   if (apiError instanceof TimeoutError) {
     return 'La solicitud tardó demasiado tiempo. Por favor, intenta de nuevo.';
+  }
+
+  if (apiError instanceof AccountInactiveError) {
+    return 'Tu cuenta ha sido desactivada. Por favor, contacta a tu maestro.';
+  }
+
+  if (apiError instanceof AccountSuspendedError) {
+    const details = apiError.suspensionDetails;
+    if (details?.isPermanent) {
+      return 'Tu cuenta ha sido suspendida permanentemente. Contacta al soporte.';
+    }
+    if (details?.suspendedUntil) {
+      const suspendedUntil = new Date(details.suspendedUntil).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const reason = details.reason ? ` Razón: ${details.reason}` : '';
+      return `Tu cuenta está suspendida hasta el ${suspendedUntil}.${reason}`;
+    }
+    return 'Tu cuenta ha sido suspendida. Contacta al soporte.';
   }
 
   if (apiError instanceof AuthenticationError) {

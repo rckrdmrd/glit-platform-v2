@@ -64,20 +64,46 @@ export default function GamificationPage() {
   const progressionHistory = useRanksStore(state => state.progressionHistory);
   const showRankUpModal = useRanksStore(state => state.showRankUpModal);
   const closeRankUpModal = useRanksStore(state => state.closeRankUpModal);
+  const fetchUserProgress = useRanksStore(state => state.fetchUserProgress);
+  const ranksLoading = useRanksStore(state => state.isLoading);
+  const ranksError = useRanksStore(state => state.error);
 
   const balance = useEconomyStore(state => state.balance);
   const stats = useEconomyStore(state => state.getEconomyStats());
+  const fetchBalance = useEconomyStore(state => state.fetchBalance);
+  const economyLoading = useEconomyStore(state => state.isLoading);
+  const economyError = useEconomyStore(state => state.error);
 
   const achievements = useAchievementsStore(state => state.achievements);
   const achievementStats = useAchievementsStore(state => state.stats);
+  const fetchAchievements = useAchievementsStore(state => state.fetchAchievements);
+  const achievementsLoading = useAchievementsStore(state => state.isLoading);
+  const achievementsError = useAchievementsStore(state => state.error);
 
-  // Fetch data on mount (placeholder - replace with real API)
+  // Fetch data on mount and set up polling
   useEffect(() => {
-    // TODO: Fetch real data from API
-    // ranksStore.fetchUserProgress()
-    // economyStore.fetchBalance()
-    // achievementsStore.fetchAchievements()
-  }, []);
+    // Initial fetch - all in parallel
+    const fetchAllData = async () => {
+      await Promise.all([
+        fetchUserProgress(),
+        fetchBalance(),
+        fetchAchievements()
+      ]);
+    };
+
+    // Fetch immediately on mount
+    fetchAllData();
+
+    // Set up polling every 30 seconds
+    const pollingInterval = setInterval(() => {
+      fetchAllData();
+    }, 30000); // 30 seconds
+
+    // Cleanup interval on unmount
+    return () => {
+      clearInterval(pollingInterval);
+    };
+  }, [fetchUserProgress, fetchBalance, fetchAchievements]);
 
   // Animation variants
   const containerVariants = {
@@ -137,6 +163,12 @@ export default function GamificationPage() {
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
     .slice(0, 5);
 
+  // Check if any data is loading
+  const isLoading = ranksLoading || economyLoading || achievementsLoading;
+
+  // Collect all errors
+  const errors = [ranksError, economyError, achievementsError].filter(Boolean);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 dark:from-gray-900 dark:to-gray-800">
       {/* Hero Section - Rank Actual */}
@@ -194,6 +226,28 @@ export default function GamificationPage() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+              <p className="text-blue-700 font-medium">Sincronizando datos con el servidor...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Messages */}
+        {errors.length > 0 && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+            <h3 className="text-red-800 font-bold mb-2">Errores de sincronizacion:</h3>
+            <ul className="list-disc list-inside text-red-700 space-y-1">
+              {errors.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <motion.div
           variants={containerVariants}
           initial="hidden"

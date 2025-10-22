@@ -403,6 +403,133 @@ export const getUserLeaderboardRank = async (
 };
 
 // ============================================================================
+// SPRINT 2 - NEW LEADERBOARDS API (Materialized Views)
+// ============================================================================
+
+/**
+ * Get XP Leaderboard (from materialized view)
+ *
+ * @param limit - Number of entries (default 100)
+ * @param offset - Offset for pagination (default 0)
+ * @returns XP leaderboard entries
+ */
+export const getXPLeaderboard = async (limit: number = 100, offset: number = 0): Promise<any[]> => {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return [];
+    }
+
+    const { data } = await apiClient.get<ApiResponse<any[]>>(
+      API_ENDPOINTS.leaderboards.xp,
+      { params: { limit, offset } }
+    );
+
+    return data.data;
+  } catch (error) {
+    throw handleAPIError(error);
+  }
+};
+
+/**
+ * Get Coins Leaderboard (from materialized view)
+ *
+ * @param limit - Number of entries (default 100)
+ * @param offset - Offset for pagination (default 0)
+ * @returns Coins leaderboard entries
+ */
+export const getCoinsLeaderboard = async (limit: number = 100, offset: number = 0): Promise<any[]> => {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return [];
+    }
+
+    const { data } = await apiClient.get<ApiResponse<any[]>>(
+      API_ENDPOINTS.leaderboards.coins,
+      { params: { limit, offset } }
+    );
+
+    return data.data;
+  } catch (error) {
+    throw handleAPIError(error);
+  }
+};
+
+/**
+ * Get Streaks Leaderboard (from materialized view)
+ *
+ * @param limit - Number of entries (default 100)
+ * @param offset - Offset for pagination (default 0)
+ * @returns Streaks leaderboard entries
+ */
+export const getStreaksLeaderboard = async (limit: number = 100, offset: number = 0): Promise<any[]> => {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return [];
+    }
+
+    const { data } = await apiClient.get<ApiResponse<any[]>>(
+      API_ENDPOINTS.leaderboards.streaks,
+      { params: { limit, offset } }
+    );
+
+    return data.data;
+  } catch (error) {
+    throw handleAPIError(error);
+  }
+};
+
+/**
+ * Get Global Leaderboard (from materialized view)
+ *
+ * @param limit - Number of entries (default 100)
+ * @param offset - Offset for pagination (default 0)
+ * @returns Global leaderboard entries
+ */
+export const getGlobalLeaderboard = async (limit: number = 100, offset: number = 0): Promise<any[]> => {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return [];
+    }
+
+    const { data } = await apiClient.get<ApiResponse<any[]>>(
+      API_ENDPOINTS.leaderboards.globalView,
+      { params: { limit, offset } }
+    );
+
+    return data.data;
+  } catch (error) {
+    throw handleAPIError(error);
+  }
+};
+
+/**
+ * Get user's rank in a specific leaderboard type
+ *
+ * @param type - Leaderboard type ('xp', 'coins', 'streaks', 'global')
+ * @returns User's rank data
+ */
+export const getMyLeaderboardRank = async (type: 'xp' | 'coins' | 'streaks' | 'global'): Promise<{ rank: number }> => {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return { rank: 42 };
+    }
+
+    const { data } = await apiClient.get<ApiResponse<{ rank: number }>>(
+      API_ENDPOINTS.leaderboards.myRank(type)
+    );
+
+    return data.data;
+  } catch (error) {
+    throw handleAPIError(error);
+  }
+};
+
+// ============================================================================
 // GUILDS API
 // ============================================================================
 
@@ -872,9 +999,16 @@ export default {
   getPowerUpInventory,
   getActivePowerUps,
 
-  // Leaderboards
+  // Leaderboards (Legacy)
   getLeaderboard,
   getUserLeaderboardRank,
+
+  // Leaderboards (Sprint 2 - New Materialized Views)
+  getXPLeaderboard,
+  getCoinsLeaderboard,
+  getStreaksLeaderboard,
+  getGlobalLeaderboard,
+  getMyLeaderboardRank,
 
   // Guilds
   getGuilds,

@@ -13,6 +13,9 @@ export interface DetectiveButtonProps {
   className?: string;
   type?: 'button' | 'submit' | 'reset';
   as?: string;
+  'aria-label'?: string;
+  'aria-describedby'?: string;
+  'aria-pressed'?: boolean;
 }
 
 const sizeClasses = {
@@ -40,7 +43,13 @@ export const DetectiveButton: React.FC<DetectiveButtonProps> = ({
   loading = false,
   className,
   type = 'button',
+  'aria-label': ariaLabel,
+  'aria-describedby': ariaDescribedby,
+  'aria-pressed': ariaPressed,
 }) => {
+  // Auto-generate aria-label for icon-only buttons
+  const computedAriaLabel = ariaLabel || (icon && !children ? 'Botón' : undefined);
+
   return (
     <motion.button
       type={type}
@@ -48,10 +57,16 @@ export const DetectiveButton: React.FC<DetectiveButtonProps> = ({
       whileTap={!disabled ? { scale: 0.98 } : {}}
       onClick={onClick}
       disabled={disabled || loading}
+      aria-label={computedAriaLabel}
+      aria-describedby={ariaDescribedby}
+      aria-pressed={ariaPressed}
+      aria-busy={loading}
+      aria-disabled={disabled}
       className={cn(
         variantClasses[variant],
         sizeClasses[size],
         'inline-flex items-center justify-center gap-2',
+        'focus:outline-none focus:ring-2 focus:ring-detective-orange focus:ring-offset-2',
         disabled && 'opacity-50 cursor-not-allowed',
         className
       )}
@@ -62,6 +77,7 @@ export const DetectiveButton: React.FC<DetectiveButtonProps> = ({
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <circle
             className="opacity-25"
@@ -78,7 +94,8 @@ export const DetectiveButton: React.FC<DetectiveButtonProps> = ({
           ></path>
         </svg>
       )}
-      {icon && !loading && icon}
+      {loading && <span className="sr-only">Cargando...</span>}
+      {icon && !loading && <span aria-hidden="true">{icon}</span>}
       {children}
     </motion.button>
   );

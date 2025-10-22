@@ -3,11 +3,14 @@
  * Displays exercise completion with XP/ML Coins animations, achievements, and next steps
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Confetti from 'react-confetti';
 import { DetectiveButton } from '@shared/components/base/DetectiveButton';
+import { useProgression } from '@/features/gamification/ranks/hooks/useProgression';
+import { useCoins } from '@/features/gamification/economy/hooks/useCoins';
+import { useAchievementsStore } from '@/features/gamification/social/store/achievementsStore';
 import {
   Trophy,
   Star,
@@ -21,12 +24,23 @@ import {
   Zap,
 } from 'lucide-react';
 
+/**
+ * Achievement from backend API
+ * Supports both legacy and new format
+ */
 interface Achievement {
   id: string;
-  name: string;
-  description: string;
-  icon: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  // Legacy format
+  name?: string;
+  description?: string;
+  icon?: string;
+  rarity?: 'common' | 'rare' | 'epic' | 'legendary';
+  // New format from backend (Sprint 2)
+  key?: string;
+  title?: string;
+  mlCoinsReward?: number;
+  xpReward?: number;
+  iconUrl?: string;
 }
 
 interface CompletionModalProps {
@@ -40,9 +54,22 @@ interface CompletionModalProps {
   hintsUsed: number;
   achievements?: Achievement[];
   moduleId: string;
+  exerciseId?: string;
   onClose: () => void;
   onRetry: () => void;
   onNextExercise?: () => void;
+  // Sprint 2 - New fields
+  rankUp?: {
+    newRank: string;
+    previousRank?: string;
+    bonusMLCoins: number;
+    newMultiplier: number;
+  } | null;
+  streakInfo?: {
+    currentStreak: number;
+    milestone: boolean;
+    reward: number;
+  };
 }
 
 export const CompletionModal: React.FC<CompletionModalProps> = ({
@@ -56,15 +83,70 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   hintsUsed,
   achievements = [],
   moduleId,
+  exerciseId = 'unknown',
   onClose,
   onRetry,
   onNextExercise,
+  rankUp,
+  streakInfo,
 }) => {
   const navigate = useNavigate();
   const [showConfetti, setShowConfetti] = useState(false);
   const [animatedXP, setAnimatedXP] = useState(0);
   const [animatedCoins, setAnimatedCoins] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  // Gamification hooks
+  const { addXP, checkRankUp } = useProgression();
+  const { earnCoins } = useCoins();
+  const { unlockAchievement } = useAchievementsStore();
+
+  // Ref to prevent duplicate reward application
+  const rewardsApplied = useRef(false);
+
+  /**
+   * Apply gamification rewards (XP, ML Coins, Achievements)
+   */
+  const applyRewards = async () => {
+    try {
+      // Add XP
+      if (xpGained > 0) {
+        await addXP(xpGained, 'exercise_completion', exerciseId);
+        console.log(`✅ XP Added: +${xpGained} XP`);
+      }
+
+      // Add ML Coins
+      if (mlCoinsGained > 0) {
+        earnCoins(mlCoinsGained, 'exercise_completion', exerciseId);
+        console.log(`✅ ML Coins Added: +${mlCoinsGained} ML`);
+      }
+
+      // Check for rank up
+      const didRankUp = checkRankUp();
+      if (didRankUp) {
+        console.log('🎉 ¡Felicidades! Has subido de rango. Revisa tu perfil para ver tu nuevo rango.');
+      }
+
+      // Unlock achievements
+      if (achievements && achievements.length > 0) {
+        achievements.forEach((achievement) => {
+          unlockAchievement(achievement.id);
+          console.log(`🏆 ¡Logro Desbloqueado: ${achievement.name}! - ${achievement.description}`);
+        });
+      }
+
+      console.log('✅ Rewards applied successfully:', {
+        xpGained,
+        mlCoinsGained,
+        achievementsUnlocked: achievements.length,
+        exerciseId,
+        didRankUp,
+      });
+    } catch (error) {
+      console.error('❌ Error applying rewards:', error);
+      console.error('Las recompensas pueden no haberse guardado correctamente');
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -115,6 +197,20 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
     }
   }, [isOpen, success, xpGained, mlCoinsGained]);
 
+  // Apply rewards when modal opens with success
+  useEffect(() => {
+    if (isOpen && success && !rewardsApplied.current) {
+      applyRewards();
+      rewardsApplied.current = true;
+    }
+
+    // Reset ref when modal closes
+    if (!isOpen) {
+      rewardsApplied.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, success]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -132,7 +228,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
     return 'Sigue intentando';
   };
 
-  const getRarityColor = (rarity: string) => {
+  const getRarityColor = (rarity?: string) => {
     switch (rarity) {
       case 'legendary':
         return 'from-purple-500 to-pink-500';
@@ -143,6 +239,18 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
       default:
         return 'from-gray-400 to-gray-600';
     }
+  };
+
+  // Helper to get achievement display data (supports both formats)
+  const getAchievementDisplay = (achievement: Achievement) => {
+    return {
+      name: achievement.title || achievement.name || 'Achievement',
+      description: achievement.description || '',
+      icon: achievement.iconUrl || achievement.icon || '🏆',
+      rarity: achievement.rarity || 'common',
+      mlCoinsReward: achievement.mlCoinsReward || 0,
+      xpReward: achievement.xpReward || 0
+    };
   };
 
   if (!isOpen) return null;
@@ -316,12 +424,62 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
               </div>
             </motion.div>
 
+            {/* Rank Up Notification */}
+            {rankUp && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.7, type: 'spring', stiffness: 200 }}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-detective text-white"
+              >
+                <div className="text-center">
+                  <Crown className="w-16 h-16 mx-auto mb-3" />
+                  <h3 className="text-2xl font-bold mb-2">¡Rango Mejorado!</h3>
+                  <p className="text-lg mb-3">
+                    {rankUp.previousRank && <span className="opacity-75">{rankUp.previousRank} → </span>}
+                    <span className="font-bold">{rankUp.newRank}</span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="bg-white/20 rounded-lg p-3">
+                      <p className="text-sm opacity-90 mb-1">Bonus ML Coins</p>
+                      <p className="text-2xl font-bold">+{rankUp.bonusMLCoins}</p>
+                    </div>
+                    <div className="bg-white/20 rounded-lg p-3">
+                      <p className="text-sm opacity-90 mb-1">Nuevo Multiplicador</p>
+                      <p className="text-2xl font-bold">{rankUp.newMultiplier}x</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Streak Milestone */}
+            {streakInfo && streakInfo.milestone && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.75, type: 'spring', stiffness: 200 }}
+                className="bg-gradient-to-r from-orange-500 to-red-500 p-6 rounded-detective text-white"
+              >
+                <div className="text-center">
+                  <Flame className="w-16 h-16 mx-auto mb-3" />
+                  <h3 className="text-2xl font-bold mb-2">¡Racha Alcanzada!</h3>
+                  <p className="text-3xl font-bold mb-2">{streakInfo.currentStreak} días</p>
+                  <p className="text-lg mb-3">¡Sigue así!</p>
+                  <div className="bg-white/20 rounded-lg p-3 mt-4">
+                    <p className="text-sm opacity-90 mb-1">Recompensa de Racha</p>
+                    <p className="text-2xl font-bold">+{streakInfo.reward} ML Coins</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* Achievements */}
             {achievements.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
+                transition={{ delay: 0.8 }}
                 className="space-y-3"
               >
                 <h3 className="font-bold text-detective-text flex items-center gap-2">
@@ -329,25 +487,40 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
                   ¡Logros Desbloqueados!
                 </h3>
                 <div className="space-y-2">
-                  {achievements.map((achievement, index) => (
-                    <motion.div
-                      key={achievement.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.8 + index * 0.1 }}
-                      className={`bg-gradient-to-r ${getRarityColor(
-                        achievement.rarity
-                      )} p-4 rounded-detective text-white`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">{achievement.icon}</span>
-                        <div>
-                          <p className="font-bold">{achievement.name}</p>
-                          <p className="text-sm opacity-90">{achievement.description}</p>
+                  {achievements.map((achievement, index) => {
+                    const display = getAchievementDisplay(achievement);
+                    return (
+                      <motion.div
+                        key={achievement.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.9 + index * 0.1 }}
+                        className={`bg-gradient-to-r ${getRarityColor(
+                          display.rarity
+                        )} p-4 rounded-detective text-white`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{display.icon}</span>
+                          <div className="flex-1">
+                            <p className="font-bold">{display.name}</p>
+                            <p className="text-sm opacity-90">{display.description}</p>
+                            <div className="flex gap-2 mt-2">
+                              {display.mlCoinsReward > 0 && (
+                                <span className="px-2 py-1 bg-white/20 rounded-full text-xs font-semibold">
+                                  +{display.mlCoinsReward} 💰
+                                </span>
+                              )}
+                              {display.xpReward > 0 && (
+                                <span className="px-2 py-1 bg-white/20 rounded-full text-xs font-semibold">
+                                  +{display.xpReward} ⭐
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </motion.div>
             )}

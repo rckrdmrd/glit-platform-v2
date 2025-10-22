@@ -9,12 +9,13 @@ import { EmailInput } from '@features/auth/components/EmailInput';
 import { PasswordInput } from '@features/auth/components/PasswordInput';
 import { FormErrorDisplay } from '@features/auth/components/FormErrorDisplay';
 import { registerSchema, RegisterFormData } from '@features/auth/schemas/authSchemas';
-import { mockRegister } from '@features/auth/mocks/authMocks';
-import { Target, UserPlus, User, Mail, CheckCircle2 } from 'lucide-react';
+import { useAuthStore } from '@features/auth/store/authStore';
+import { Target, UserPlus, User, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const registerUser = useAuthStore((state) => state.register);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string>('');
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -39,23 +40,22 @@ export default function RegisterPage() {
     setServerError('');
 
     try {
-      const response = await mockRegister({
+      // Use real API via authStore instead of mockRegister
+      await registerUser({
         fullName: data.fullName,
         email: data.email,
-        password: data.password
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+        acceptTerms: true
       });
 
-      if (response.success) {
-        setRegistrationSuccess(true);
-        // Redirigir a verificación de email después de 2 segundos
-        setTimeout(() => {
-          navigate('/email-verification');
-        }, 2000);
-      } else {
-        setServerError(response.error || 'Error en el registro');
-      }
-    } catch (error) {
-      setServerError('Error de conexión. Intenta nuevamente.');
+      setRegistrationSuccess(true);
+      // Auto-redirect to login page after 2 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (error: any) {
+      setServerError(error.message || 'Error de conexión. Intenta nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -73,13 +73,13 @@ export default function RegisterPage() {
           >
             <CheckCircle2 className="w-16 h-16 text-detective-success mx-auto mb-4" />
             <h2 className="text-detective-title text-detective-success mb-3">
-              Registro Exitoso
+              Cuenta Creada
             </h2>
             <p className="text-detective-body text-detective-text-secondary mb-4">
-              Tu cuenta ha sido creada. Revisa tu email para verificar tu cuenta.
+              Tu cuenta ha sido creada exitosamente. Ya puedes iniciar sesión.
             </p>
             <p className="text-detective-sm text-detective-text-secondary">
-              Redirigiendo...
+              Redirigiendo a inicio de sesión...
             </p>
           </motion.div>
         </DetectiveCard>
@@ -189,14 +189,6 @@ export default function RegisterPage() {
                 {errors.acceptTerms.message}
               </p>
             )}
-          </div>
-
-          {/* Email Verification Notice */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 flex items-start gap-2">
-            <Mail className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <p className="text-detective-sm text-blue-700">
-              Recibirás un email de verificación después de registrarte
-            </p>
           </div>
 
           <DetectiveButton

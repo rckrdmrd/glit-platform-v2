@@ -91,14 +91,44 @@ const generateGridFromClues = (clues: any[], rows: number, cols: number): any[][
       }
 
       if (row < rows && col < cols) {
-        grid[row][col] = {
-          row,
-          col,
-          letter: answer[i],
-          isBlack: false,
-          number: i === 0 ? number : undefined,
-          userInput: '',
-        };
+        const existingCell = grid[row][col];
+
+        // Check if this is the first letter of the word
+        if (i === 0) {
+          // Cell already has content - merge numbers
+          if (!existingCell.isBlack && existingCell.number !== undefined) {
+            grid[row][col] = {
+              ...existingCell,
+              letter: answer[i],
+              numbers: existingCell.numbers
+                ? [...existingCell.numbers, number].sort((a, b) => a - b)
+                : [existingCell.number, number].sort((a, b) => a - b),
+              number: undefined, // Clear single number, use array instead
+            };
+          } else {
+            // First word in this cell
+            grid[row][col] = {
+              row,
+              col,
+              letter: answer[i],
+              isBlack: false,
+              number: number,
+              userInput: '',
+            };
+          }
+        } else {
+          // Not the first letter - only update if cell is black or preserve existing
+          if (existingCell.isBlack) {
+            grid[row][col] = {
+              row,
+              col,
+              letter: answer[i],
+              isBlack: false,
+              userInput: '',
+            };
+          }
+          // If cell already has a letter (intersection), keep it as is
+        }
       }
     }
   });
@@ -114,18 +144,91 @@ export const adaptToCrucigramaData = (exercise: ExerciseData): any => {
 
   // Get clues and grid size from mechanicData.content
   const content = exercise.mechanicData?.content || {};
-  const clues = content.clues || [];
-  const gridSize = content.gridSize || { rows: 15, cols: 15 };
 
-  // Generate grid from clues
-  const grid = generateGridFromClues(clues, gridSize.rows, gridSize.cols);
+  // Use words array for grid generation (new format)
+  // or fall back to clues array (old format)
+  let wordsForGrid: any[] = [];
+  if (content.words && Array.isArray(content.words)) {
+    // New format: words array with word, startRow, startCol, direction
+    wordsForGrid = content.words.map((w: any) => ({
+      answer: w.word,
+      startRow: w.startRow,
+      startCol: w.startCol,
+      direction: w.direction,
+      number: w.clueNumber,
+    }));
+  } else if (Array.isArray(content.clues)) {
+    // Old format: direct clues array
+    wordsForGrid = content.clues;
+  } else if (content.clues && typeof content.clues === 'object') {
+    // Alternative old format: { vertical: [], horizontal: [] }
+    const vertical = (content.clues.vertical || []).map((c: any) => ({
+      answer: c.word || c.answer,
+      startRow: c.startRow || 0,
+      startCol: c.startCol || 0,
+      direction: 'vertical',
+      number: c.number,
+    }));
+    const horizontal = (content.clues.horizontal || []).map((c: any) => ({
+      answer: c.word || c.answer,
+      startRow: c.startRow || 0,
+      startCol: c.startCol || 0,
+      direction: 'horizontal',
+      number: c.number,
+    }));
+    wordsForGrid = [...vertical, ...horizontal];
+  }
+
+  // Get grid from content.grid or use default
+  const gridConfig = content.grid || { rows: 15, cols: 15 };
+  const rows = gridConfig.rows || 15;
+  const cols = gridConfig.cols || 15;
+
+  // Generate grid from words
+  const grid = generateGridFromClues(wordsForGrid, rows, cols);
+
+  // Convert clues to flat array format expected by CrucigramaExercise component
+  let cluesArray: any[] = [];
+  if (content.clues && typeof content.clues === 'object' && !Array.isArray(content.clues)) {
+    // New format: { vertical: [], horizontal: [] } + words array with positions
+    const words = content.words || [];
+
+    const vertical = (content.clues.vertical || []).map((c: any) => {
+      const wordData = words.find((w: any) => w.clueNumber === c.number && w.direction === 'vertical');
+      return {
+        ...c,
+        id: `v${c.number}`,
+        direction: 'vertical',
+        answer: c.word,
+        startRow: wordData?.startRow || 0,
+        startCol: wordData?.startCol || 0,
+      };
+    });
+
+    const horizontal = (content.clues.horizontal || []).map((c: any) => {
+      const wordData = words.find((w: any) => w.clueNumber === c.number && w.direction === 'horizontal');
+      return {
+        ...c,
+        id: `h${c.number}`,
+        direction: 'horizontal',
+        answer: c.word,
+        startRow: wordData?.startRow || 0,
+        startCol: wordData?.startCol || 0,
+      };
+    });
+
+    cluesArray = [...horizontal, ...vertical];
+  } else if (Array.isArray(content.clues)) {
+    // Old format: already an array
+    cluesArray = content.clues;
+  }
 
   return {
     ...base,
     grid,
-    clues,
-    rows: gridSize.rows,
-    cols: gridSize.cols,
+    clues: cluesArray, // Flat array for component
+    rows,
+    cols,
   };
 };
 

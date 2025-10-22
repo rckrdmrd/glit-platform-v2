@@ -57,3 +57,45 @@ export interface AIHint {
   cost: number;
   revealed: boolean;
 }
+
+// Exercise State for auto-save
+export interface DetectiveTextualState {
+  discoveredEvidence: string[];
+  connections: EvidenceConnection[];
+  hypotheses: string[];
+  hintsUsed: number;
+  timeSpent: number;
+  score: number;
+}
+
+// Exercise Actions Interface for Parent Control
+export interface DetectiveTextualActions {
+  getState: () => DetectiveTextualState;
+  reset: () => void;
+  validate: () => Promise<void>;
+  discoverEvidence?: (evidenceId: string) => void;
+  createConnection?: (fromId: string, toId: string, relationship: string) => Promise<void>;
+}
+
+// Exercise Progress Update Interface
+export interface ExerciseProgressUpdate {
+  currentStep: number;
+  totalSteps: number;
+  score: number;
+  hintsUsed: number;
+  timeSpent: number;
+}
+
+// Standardized Exercise Props Interface (Module 1 Pattern)
+export interface DetectiveTextualExerciseProps {
+  moduleId: number;
+  lessonId: number;
+  exerciseId: string;
+  userId: string;
+  onComplete?: (score: number, timeSpent: number) => void;
+  onExit?: () => void;
+  onProgressUpdate?: (progress: ExerciseProgressUpdate) => void;
+  initialData?: Partial<DetectiveProgress>;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  actionsRef?: React.MutableRefObject<DetectiveTextualActions | undefined>;
+}

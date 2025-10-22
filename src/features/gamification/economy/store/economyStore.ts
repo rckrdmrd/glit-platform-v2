@@ -21,6 +21,7 @@ import type {
   TransactionFilters,
   EconomyStats,
 } from '../types/economyTypes';
+import { getBalance } from '../api/economyAPI';
 
 /**
  * Economy Store State Interface
@@ -70,6 +71,9 @@ interface EconomyState {
   reset: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+
+  // API Sync
+  fetchBalance: () => Promise<void>;
 }
 
 /**
@@ -468,6 +472,32 @@ export const useEconomyStore = create<EconomyState>()(
       // Set Error
       setError: (error) => {
         set({ error });
+      },
+
+      // ========================================================================
+      // API SYNC ACTIONS
+      // ========================================================================
+
+      /**
+       * Fetch balance from backend
+       */
+      fetchBalance: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const balance = await getBalance();
+          set({
+            balance,
+            isLoading: false,
+            error: null
+          });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to fetch balance';
+          set({
+            isLoading: false,
+            error: errorMessage
+          });
+          console.error('Error fetching balance:', error);
+        }
       },
     }),
     {

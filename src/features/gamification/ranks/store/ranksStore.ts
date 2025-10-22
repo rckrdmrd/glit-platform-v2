@@ -26,6 +26,7 @@ import {
   getPrestigeBonusByLevel,
   calculateTotalMultiplier,
 } from '../mockData/ranksMockData';
+import { getCurrentRank } from '../api/ranksAPI';
 
 // ============================================================================
 // STORE STATE INTERFACE
@@ -44,6 +45,7 @@ interface RanksState {
   showRankUpModal: boolean;
   showPrestigeModal: boolean;
   isLoading: boolean;
+  error: string | null;
 
   // Actions - XP & Progression
   addXP: (amount: number, source: XPSource, description?: string) => Promise<void>;
@@ -74,6 +76,10 @@ interface RanksState {
 
   // Utility actions
   setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+
+  // API Sync actions
+  fetchUserProgress: () => Promise<void>;
 }
 
 // ============================================================================
@@ -122,6 +128,7 @@ export const useRanksStore = create<RanksState>()(
       showRankUpModal: false,
       showPrestigeModal: false,
       isLoading: false,
+      error: null,
 
       // ========================================================================
       // XP & PROGRESSION ACTIONS
@@ -541,6 +548,38 @@ export const useRanksStore = create<RanksState>()(
 
       setLoading: (loading: boolean) => {
         set({ isLoading: loading });
+      },
+
+      setError: (error: string | null) => {
+        set({ error });
+      },
+
+      // ========================================================================
+      // API SYNC ACTIONS
+      // ========================================================================
+
+      /**
+       * Fetch user progress from backend
+       */
+      fetchUserProgress: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const userProgress = await getCurrentRank();
+          set({
+            userProgress,
+            isLoading: false,
+            error: null
+          });
+          // Update multipliers after fetching progress
+          get().updateMultipliers();
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user progress';
+          set({
+            isLoading: false,
+            error: errorMessage
+          });
+          console.error('Error fetching user progress:', error);
+        }
       },
     }),
     {

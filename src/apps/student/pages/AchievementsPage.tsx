@@ -76,21 +76,8 @@ export default function AchievementsPage() {
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // WebSocket Integration for real-time updates
-  useEffect(() => {
-    // TODO: Implement WebSocket connection
-    // const socket = io('http://localhost:3001', {
-    //   auth: { token: getToken() }
-    // });
-
-    // socket.on('notification:new', (data) => {
-    //   if (data.notification.type === 'achievement_unlocked') {
-    //     achievementsStore.refetch();
-    //   }
-    // });
-
-    // return () => socket.disconnect();
-  }, []);
+  // WebSocket Integration for real-time updates is handled globally via App.tsx
+  // The useAchievements hook will automatically update when new achievements are unlocked
 
   // Auto-show unlock modal for recent unlocks
   useEffect(() => {

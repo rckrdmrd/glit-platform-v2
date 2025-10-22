@@ -45,10 +45,14 @@ export const CrucigramaGrid: React.FC<CrucigramaGridProps> = ({
 
   return (
     <div className="inline-block bg-white p-4 rounded-lg shadow-lg">
-      <div className="grid gap-px bg-gray-300 border-2 border-gray-400">
+      <div
+        role="grid"
+        aria-label="Grid del crucigrama"
+        className="gap-px bg-gray-300 border-2 border-gray-400"
+      >
         {grid.map((rowCells, rowIndex) => (
-          <div key={rowIndex} className="flex">
-            {rowCells.map((cell) => {
+          <div key={rowIndex} role="row" className="flex">
+            {rowCells.map((cell, colIndex) => {
               const key = `${cell.row}-${cell.col}`;
               const isSelected =
                 selectedCell?.row === cell.row && selectedCell?.col === cell.col;
@@ -57,14 +61,25 @@ export const CrucigramaGrid: React.FC<CrucigramaGridProps> = ({
                 return (
                   <div
                     key={key}
+                    role="gridcell"
+                    aria-rowindex={rowIndex + 1}
+                    aria-colindex={colIndex + 1}
+                    aria-label="Celda bloqueada"
                     className="w-10 h-10 bg-gray-800"
                   />
                 );
               }
 
+              const cellLabel = cell.number
+                ? `Celda ${cell.number}`
+                : `Fila ${rowIndex + 1}, columna ${colIndex + 1}`;
+
               return (
                 <motion.div
                   key={key}
+                  role="gridcell"
+                  aria-rowindex={rowIndex + 1}
+                  aria-colindex={colIndex + 1}
                   whileHover={{ scale: 1.05 }}
                   className={cn(
                     'w-10 h-10 bg-white relative cursor-pointer',
@@ -72,11 +87,22 @@ export const CrucigramaGrid: React.FC<CrucigramaGridProps> = ({
                   )}
                   onClick={() => onCellClick(cell.row, cell.col)}
                 >
-                  {cell.number && (
-                    <span className="absolute top-0 left-0.5 text-xs font-bold text-gray-600">
+                  {/* Display multiple numbers if they exist */}
+                  {cell.numbers && cell.numbers.length > 0 ? (
+                    <span
+                      className="absolute top-0 left-0.5 text-[10px] font-bold text-gray-600 leading-tight"
+                      aria-hidden="true"
+                    >
+                      {cell.numbers.join(',')}
+                    </span>
+                  ) : cell.number ? (
+                    <span
+                      className="absolute top-0 left-0.5 text-xs font-bold text-gray-600"
+                      aria-hidden="true"
+                    >
                       {cell.number}
                     </span>
-                  )}
+                  ) : null}
                   <input
                     ref={(el) => { cellRefs.current[key] = el; }}
                     type="text"
@@ -86,7 +112,8 @@ export const CrucigramaGrid: React.FC<CrucigramaGridProps> = ({
                       onCellInput(cell.row, cell.col, e.target.value.toUpperCase())
                     }
                     onKeyDown={(e) => handleKeyDown(e, cell.row, cell.col)}
-                    className="w-full h-full text-center text-lg font-bold uppercase bg-transparent border-none outline-none"
+                    aria-label={cellLabel}
+                    className="w-full h-full text-center text-lg font-bold uppercase bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
                     style={{ caretColor: 'transparent' }}
                   />
                 </motion.div>

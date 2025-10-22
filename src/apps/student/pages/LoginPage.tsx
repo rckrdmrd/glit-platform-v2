@@ -10,12 +10,22 @@ import { FormErrorDisplay } from '@features/auth/components/FormErrorDisplay';
 import { loginSchema, LoginFormData } from '@features/auth/schemas/authSchemas';
 import { useAuth } from '@features/auth/hooks/useAuth';
 import { useAuthStore } from '@features/auth/store/authStore';
-import { Lock, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { Lock, AlertTriangle, Wifi, WifiOff, Ban, Clock } from 'lucide-react';
+import { AccountInactiveError, AccountSuspendedError } from '@services/api/apiErrorHandler';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading: authLoading, error: authError } = useAuth();
   const [serverError, setServerError] = useState<string>('');
+  const [accountStatusError, setAccountStatusError] = useState<{
+    type: 'inactive' | 'suspended' | null;
+    message: string;
+    suspensionDetails?: {
+      isPermanent: boolean;
+      suspendedUntil?: string;
+      reason?: string;
+    };
+  }>({ type: null, message: '' });
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [showCaptcha, setShowCaptcha] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -49,6 +59,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     setServerError('');
+    setAccountStatusError({ type: null, message: '' });
 
     try {
       // Use real authentication
@@ -85,7 +96,25 @@ export default function LoginPage() {
           break;
       }
     } catch (error: any) {
-      // Login fallido
+      // Check for specific account status errors
+      if (error instanceof AccountInactiveError) {
+        setAccountStatusError({
+          type: 'inactive',
+          message: error.message || 'Tu cuenta ha sido desactivada. Por favor, contacta a tu maestro.'
+        });
+        return; // Don't count as failed login attempt
+      }
+
+      if (error instanceof AccountSuspendedError) {
+        setAccountStatusError({
+          type: 'suspended',
+          message: error.message || 'Tu cuenta ha sido suspendida.',
+          suspensionDetails: error.suspensionDetails
+        });
+        return; // Don't count as failed login attempt
+      }
+
+      // Login fallido - other errors
       const errorMessage = error?.message || authError || 'Error de autenticación';
       setServerError(errorMessage);
 
@@ -165,6 +194,76 @@ export default function LoginPage() {
 
           {/* Form Container */}
           <div className="p-8">
+            {/* Account Inactive Error */}
+            {accountStatusError.type === 'inactive' && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 mb-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                    <Ban className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-amber-900 mb-1">
+                      Cuenta Desactivada
+                    </h3>
+                    <p className="text-sm text-amber-800 mb-2">
+                      {accountStatusError.message}
+                    </p>
+                    <p className="text-xs text-amber-700">
+                      Si crees que esto es un error, contacta a tu maestro o al administrador del sistema.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Account Suspended Error */}
+            {accountStatusError.type === 'suspended' && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-red-50 border-2 border-red-400 rounded-lg p-4 mb-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-red-900 mb-1">
+                      {accountStatusError.suspensionDetails?.isPermanent
+                        ? 'Cuenta Suspendida Permanentemente'
+                        : 'Cuenta Suspendida Temporalmente'}
+                    </h3>
+                    {accountStatusError.suspensionDetails?.suspendedUntil && (
+                      <p className="text-sm text-red-800 mb-1">
+                        Suspendida hasta:{' '}
+                        <strong>
+                          {new Date(accountStatusError.suspensionDetails.suspendedUntil).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </strong>
+                      </p>
+                    )}
+                    {accountStatusError.suspensionDetails?.reason && (
+                      <p className="text-sm text-red-800 mb-2">
+                        <strong>Razón:</strong> {accountStatusError.suspensionDetails.reason}
+                      </p>
+                    )}
+                    <p className="text-xs text-red-700">
+                      {accountStatusError.suspensionDetails?.isPermanent
+                        ? 'Para más información, contacta al soporte técnico.'
+                        : 'Podrás acceder a tu cuenta una vez que finalice el período de suspensión.'}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* Rate Limiting Warning */}
             {failedAttempts > 0 && failedAttempts < 3 && (
               <motion.div
@@ -338,7 +437,7 @@ export default function LoginPage() {
           transition={{ delay: 0.9 }}
           className="text-center text-gray-600 text-sm mt-6"
         >
-          © 2024 GLIT Platform. Todos los derechos reservados.
+          © 2025 Gamilit Platform. Todos los derechos reservados.
         </motion.p>
       </motion.div>
     </div>

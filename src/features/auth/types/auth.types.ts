@@ -9,6 +9,7 @@ export interface User {
   role: 'student' | 'admin_teacher' | 'super_admin';
   tenantId?: string;
   emailVerified: boolean;
+  isActive?: boolean;
   avatar?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -67,3 +68,22 @@ export interface SessionInfo {
   isValid: boolean;
   needsRefresh: boolean;
 }
+
+/**
+ * Account suspension details
+ */
+export interface SuspensionDetails {
+  isSuspended: boolean;
+  isPermanent: boolean;
+  suspendedUntil?: string; // ISO date string
+  reason?: string;
+}
+
+/**
+ * Account status error codes
+ */
+export type AccountErrorCode =
+  | 'ACCOUNT_INACTIVE'
+  | 'ACCOUNT_SUSPENDED'
+  | 'INVALID_CREDENTIALS'
+  | 'AUTHENTICATION_ERROR';

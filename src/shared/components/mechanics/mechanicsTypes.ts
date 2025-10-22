@@ -34,7 +34,7 @@ export interface Hint {
 }
 
 export interface FeedbackData {
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'partial';
   title: string;
   message: string;
   score?: ScoreResult;
@@ -51,34 +51,76 @@ export interface BaseExercise {
   hints: Hint[];
 }
 
-// API Integration Points (Mock)
+// API Integration Points
 export const calculateScore = async (attempt: ExerciseAttempt): Promise<ScoreResult> => {
-  // Mock implementation - will connect to backend later
-  const timeSpent = attempt.endTime && attempt.startTime
-    ? (attempt.endTime.getTime() - attempt.startTime.getTime()) / 1000
-    : 0;
+  try {
+    // Import mechanicsAPI to submit exercise
+    const { submitExercise } = await import('@/features/mechanics/shared/api/mechanicsAPI');
 
-  const accuracy = attempt.totalQuestions > 0
-    ? attempt.correctAnswers / attempt.totalQuestions
-    : 0;
+    const timeSpent = attempt.endTime && attempt.startTime
+      ? Math.floor((attempt.endTime.getTime() - attempt.startTime.getTime()) / 1000)
+      : 0;
 
-  const baseScore = Math.floor(accuracy * 100);
-  const timeBonus = Math.max(0, Math.floor((300 - timeSpent) / 10)); // Bonus for speed
-  const accuracyBonus = accuracy >= 0.9 ? 50 : accuracy >= 0.7 ? 25 : 0;
-  const hintPenalty = attempt.hintsUsed * 5;
+    console.log('[calculateScore] attempt.answers:', attempt.answers);
 
-  const totalScore = Math.max(0, baseScore + timeBonus + accuracyBonus - hintPenalty);
-  const mlCoins = Math.floor(totalScore / 10);
-  const xpGained = Math.floor(totalScore / 2);
+    // Submit to real backend API
+    const result = await submitExercise({
+      mechanicId: attempt.exerciseId,
+      answers: attempt.answers,
+      timeSpent,
+      hintsUsed: attempt.hintsUsed,
+      metadata: {
+        startedAt: attempt.startTime,
+      }
+    });
 
-  return {
-    baseScore,
-    timeBonus,
-    accuracyBonus,
-    totalScore,
-    mlCoins,
-    xpGained
-  };
+    // Transform SubmissionResponse to ScoreResult
+    const accuracy = result.totalQuestions > 0
+      ? result.correctAnswers / result.totalQuestions
+      : 0;
+
+    const baseScore = Math.floor(accuracy * 100);
+    const timeBonus = result.bonuses?.speedBonus ? 30 : 0;
+    const accuracyBonus = result.bonuses?.perfectScore ? 50 : (accuracy >= 0.7 ? 25 : 0);
+
+    return {
+      baseScore,
+      timeBonus,
+      accuracyBonus,
+      totalScore: result.score,
+      mlCoins: result.mlCoinsEarned,
+      xpGained: result.xpEarned
+    };
+  } catch (error) {
+    console.error('[calculateScore] Error submitting exercise:', error);
+
+    // Fallback to mock calculation if API fails
+    const timeSpent = attempt.endTime && attempt.startTime
+      ? (attempt.endTime.getTime() - attempt.startTime.getTime()) / 1000
+      : 0;
+
+    const accuracy = attempt.totalQuestions > 0
+      ? attempt.correctAnswers / attempt.totalQuestions
+      : 0;
+
+    const baseScore = Math.floor(accuracy * 100);
+    const timeBonus = Math.max(0, Math.floor((300 - timeSpent) / 10));
+    const accuracyBonus = accuracy >= 0.9 ? 50 : accuracy >= 0.7 ? 25 : 0;
+    const hintPenalty = attempt.hintsUsed * 5;
+
+    const totalScore = Math.max(0, baseScore + timeBonus + accuracyBonus - hintPenalty);
+    const mlCoins = Math.floor(totalScore / 10);
+    const xpGained = Math.floor(totalScore / 2);
+
+    return {
+      baseScore,
+      timeBonus,
+      accuracyBonus,
+      totalScore,
+      mlCoins,
+      xpGained
+    };
+  }
 };
 
 export const saveProgress = async (exerciseId: string, progress: unknown): Promise<void> => {

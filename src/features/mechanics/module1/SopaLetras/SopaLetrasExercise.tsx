@@ -1,21 +1,22 @@
-import React, { useState } from 'react';
-import { ExerciseContainer } from '@shared/components/mechanics/ExerciseContainer';
-import { DetectiveButton } from '@shared/components/base/DetectiveButton';
+import React, { useState, useEffect } from 'react';
 import { DetectiveCard } from '@shared/components/base/DetectiveCard';
 import { FeedbackModal } from '@shared/components/mechanics/FeedbackModal';
 import { SopaLetrasGrid } from './SopaLetrasGrid';
 import { WordList } from './WordList';
 import { SopaLetrasData } from './sopaLetrasTypes';
 import { calculateScore, FeedbackData } from '@shared/components/mechanics/mechanicsTypes';
-import { Check } from 'lucide-react';
 
 export interface SopaLetrasExerciseProps {
   exercise: SopaLetrasData;
   onComplete?: () => void;
   onProgressUpdate?: (progress: any) => void;
+  actionsRef?: React.MutableRefObject<{
+    handleReset?: () => void;
+    handleCheck?: () => void;
+  }>;
 }
 
-export const SopaLetrasExercise: React.FC<SopaLetrasExerciseProps> = ({ exercise, onComplete, onProgressUpdate }) => {
+export const SopaLetrasExercise: React.FC<SopaLetrasExerciseProps> = ({ exercise, onComplete, onProgressUpdate, actionsRef }) => {
   const [words, setWords] = useState(exercise.words);
   const [selectedCells, setSelectedCells] = useState<{row:number,col:number}[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -58,19 +59,51 @@ export const SopaLetrasExercise: React.FC<SopaLetrasExerciseProps> = ({ exercise
     setShowFeedback(true);
   };
 
+  const handleReset = () => {
+    setWords(exercise.words.map(w => ({ ...w, found: false })));
+    setSelectedCells([]);
+    setFeedback(null);
+    setShowFeedback(false);
+  };
+
+  // Populate actionsRef for parent component
+  useEffect(() => {
+    if (actionsRef) {
+      actionsRef.current = {
+        handleReset,
+        handleCheck
+      };
+    }
+  }, [actionsRef, handleReset, handleCheck]);
+
   return (
-    <ExerciseContainer exercise={exercise}>
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <SopaLetrasGrid grid={exercise.grid} selectedCells={selectedCells} onCellSelect={handleCellSelect} />
+    <>
+      <DetectiveCard variant="default" padding="lg">
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <SopaLetrasGrid grid={exercise.grid} selectedCells={selectedCells} onCellSelect={handleCellSelect} />
+          </div>
+          <div>
+            <WordList words={words} />
+          </div>
         </div>
-        <div>
-          <WordList words={words} />
-          <DetectiveButton variant="gold" onClick={handleCheck} icon={<Check />} className="w-full mt-4">Verificar</DetectiveButton>
-        </div>
-      </div>
-      {feedback && <FeedbackModal isOpen={showFeedback} feedback={feedback} onClose={() => { setShowFeedback(false); if(feedback.type === 'success') onComplete?.(); }} />}
-    </ExerciseContainer>
+      </DetectiveCard>
+
+      {feedback && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          feedback={feedback}
+          onClose={() => {
+            setShowFeedback(false);
+            if (feedback.type === 'success') onComplete?.();
+          }}
+          onRetry={() => {
+            setShowFeedback(false);
+            handleReset();
+          }}
+        />
+      )}
+    </>
   );
 };
 

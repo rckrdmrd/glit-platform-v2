@@ -281,14 +281,16 @@
   padding: 0.75rem 1rem;
   border: 2px solid #d1d5db;
   border-radius: 0.5rem;
-  outline: none;
   transition: all 0.2s;
   background-color: var(--detective-bg);
 }
 
 .input-detective:focus {
+  outline: none;
   border-color: var(--detective-orange);
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  ring: 2px;
+  ring-color: var(--detective-orange);
 }
 
 .input-detective.input-detective-sm {

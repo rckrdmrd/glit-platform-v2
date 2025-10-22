@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExerciseContainer } from '@shared/components/mechanics/ExerciseContainer';
-import { ScoreDisplay } from '@shared/components/mechanics/ScoreDisplay';
-import { TimerWidget } from '@shared/components/mechanics/TimerWidget';
-import { ProgressTracker } from '@shared/components/mechanics/ProgressTracker';
-import { HintSystem } from '@shared/components/mechanics/HintSystem';
 import { FeedbackModal } from '@shared/components/mechanics/FeedbackModal';
-import { DetectiveButton } from '@shared/components/base/DetectiveButton';
 import { DetectiveCard } from '@shared/components/base/DetectiveCard';
 import { CompletarEspaciosData, BlankSpace } from './completarEspaciosTypes';
 import { calculateScore, saveProgress } from '@shared/components/mechanics/mechanicsTypes';
@@ -17,12 +11,17 @@ export interface CompletarEspaciosExerciseProps {
   exercise: CompletarEspaciosData;
   onComplete?: () => void;
   onProgressUpdate?: (progress: any) => void;
+  actionsRef?: React.MutableRefObject<{
+    handleReset?: () => void;
+    handleCheck?: () => void;
+  }>;
 }
 
 export const CompletarEspaciosExercise: React.FC<CompletarEspaciosExerciseProps> = ({
   exercise,
   onComplete,
-  onProgressUpdate
+  onProgressUpdate,
+  actionsRef
 }) => {
   const [blanks, setBlanks] = useState<BlankSpace[]>(
     exercise.blanks.map(blank => ({ ...blank, userAnswer: '' }))
@@ -30,11 +29,9 @@ export const CompletarEspaciosExercise: React.FC<CompletarEspaciosExerciseProps>
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [usedWords, setUsedWords] = useState<string[]>([]);
   const [hintsUsed, setHintsUsed] = useState(0);
-  const [availableCoins, setAvailableCoins] = useState(100);
   const [startTime] = useState(new Date());
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackData | null>(null);
-  const [currentScore, setCurrentScore] = useState(0);
   const [showResults, setShowResults] = useState(false);
 
   const answeredCount = blanks.filter(b => b.userAnswer && b.userAnswer.trim() !== '').length;
@@ -101,12 +98,6 @@ export const CompletarEspaciosExercise: React.FC<CompletarEspaciosExerciseProps>
     );
   };
 
-  const handleUseHint = (hint: { id: string; text: string; cost: number }) => {
-    setHintsUsed(prev => prev + 1);
-    setAvailableCoins(prev => prev - hint.cost);
-    alert(`Pista: ${hint.text}`);
-  };
-
   const handleCheck = async () => {
     const allAnswered = blanks.every(b => b.userAnswer && b.userAnswer.trim() !== '');
 
@@ -122,11 +113,17 @@ export const CompletarEspaciosExercise: React.FC<CompletarEspaciosExerciseProps>
 
     setShowResults(true);
 
+    // Convert blanks array to answers object
+    const answersObj: Record<string, any> = {};
+    blanks.forEach(b => {
+      answersObj[b.id] = b.userAnswer;
+    });
+
     const attempt = {
       exerciseId: exercise.id,
       startTime,
       endTime: new Date(),
-      answers: blanks.map(b => ({ id: b.id, answer: b.userAnswer })),
+      answers: answersObj,
       correctAnswers: correctCount,
       totalQuestions: blanks.length,
       hintsUsed,
@@ -134,7 +131,6 @@ export const CompletarEspaciosExercise: React.FC<CompletarEspaciosExerciseProps>
     };
 
     const score = await calculateScore(attempt);
-    setCurrentScore(score.totalScore);
 
     setFeedback({
       type: correctCount === blanks.length ? 'success' : 'partial',
@@ -151,8 +147,19 @@ export const CompletarEspaciosExercise: React.FC<CompletarEspaciosExerciseProps>
     setUsedWords([]);
     setSelectedWord(null);
     setShowResults(false);
-    setCurrentScore(0);
+    setFeedback(null);
+    setShowFeedback(false);
   };
+
+  // Populate actionsRef for parent component
+  useEffect(() => {
+    if (actionsRef) {
+      actionsRef.current = {
+        handleReset,
+        handleCheck
+      };
+    }
+  }, [actionsRef, handleReset, handleCheck]);
 
   // Split text into segments with blanks
   const renderTextWithBlanks = () => {
@@ -227,48 +234,7 @@ export const CompletarEspaciosExercise: React.FC<CompletarEspaciosExerciseProps>
   const availableWords = exercise.wordBank.filter(word => !usedWords.includes(word));
 
   return (
-    <ExerciseContainer exercise={exercise}>
-      {/* Header Controls */}
-      <DetectiveCard variant="default" padding="md" className="mb-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <TimerWidget initialTime={0} countDown={false} showWarning={false} />
-            <ProgressTracker
-              current={answeredCount}
-              total={blanks.length}
-              variant="bar"
-              className="w-64"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <HintSystem
-              hints={exercise.hints}
-              onUseHint={handleUseHint}
-              availableCoins={availableCoins}
-            />
-            <DetectiveButton
-              variant="blue"
-              onClick={handleReset}
-              disabled={answeredCount === 0}
-            >
-              Reiniciar
-            </DetectiveButton>
-            <DetectiveButton
-              variant="gold"
-              onClick={handleCheck}
-              icon={<Check className="w-5 h-5" />}
-              disabled={answeredCount < blanks.length}
-            >
-              Verificar
-            </DetectiveButton>
-          </div>
-        </div>
-        {currentScore > 0 && (
-          <div className="mt-4">
-            <ScoreDisplay score={currentScore} maxScore={100} size="sm" />
-          </div>
-        )}
-      </DetectiveCard>
+    <>
 
       {/* Scenario Text */}
       {exercise.scenarioText && (
@@ -399,7 +365,7 @@ export const CompletarEspaciosExercise: React.FC<CompletarEspaciosExerciseProps>
           }}
         />
       )}
-    </ExerciseContainer>
+    </>
   );
 };
 

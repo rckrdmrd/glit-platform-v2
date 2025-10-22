@@ -1,38 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExerciseContainer } from '@shared/components/mechanics/ExerciseContainer';
-import { ScoreDisplay } from '@shared/components/mechanics/ScoreDisplay';
-import { TimerWidget } from '@shared/components/mechanics/TimerWidget';
-import { ProgressTracker } from '@shared/components/mechanics/ProgressTracker';
-import { HintSystem } from '@shared/components/mechanics/HintSystem';
 import { FeedbackModal } from '@shared/components/mechanics/FeedbackModal';
-import { DetectiveButton } from '@shared/components/base/DetectiveButton';
 import { DetectiveCard } from '@shared/components/base/DetectiveCard';
 import { VerdaderoFalsoData, VerdaderoFalsoStatement } from './verdaderoFalsoTypes';
 import { calculateScore, saveProgress } from '@shared/components/mechanics/mechanicsTypes';
-import { Check, X, CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle } from 'lucide-react';
 import { FeedbackData } from '@shared/components/mechanics/mechanicsTypes';
 
 export interface VerdaderoFalsoExerciseProps {
   exercise: VerdaderoFalsoData;
   onComplete?: () => void;
   onProgressUpdate?: (progress: any) => void;
+  actionsRef?: React.MutableRefObject<{
+    handleReset?: () => void;
+    handleCheck?: () => void;
+  }>;
 }
 
 export const VerdaderoFalsoExercise: React.FC<VerdaderoFalsoExerciseProps> = ({
   exercise,
   onComplete,
-  onProgressUpdate
+  onProgressUpdate,
+  actionsRef
 }) => {
   const [statements, setStatements] = useState<VerdaderoFalsoStatement[]>(
     exercise.statements.map(stmt => ({ ...stmt, userAnswer: null }))
   );
   const [hintsUsed, setHintsUsed] = useState(0);
-  const [availableCoins, setAvailableCoins] = useState(100);
   const [startTime] = useState(new Date());
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackData | null>(null);
-  const [currentScore, setCurrentScore] = useState(0);
   const [showResults, setShowResults] = useState(false);
 
   const answeredCount = statements.filter(s => s.userAnswer !== null).length;
@@ -64,12 +61,6 @@ export const VerdaderoFalsoExercise: React.FC<VerdaderoFalsoExerciseProps> = ({
     );
   };
 
-  const handleUseHint = (hint: { id: string; text: string; cost: number }) => {
-    setHintsUsed(prev => prev + 1);
-    setAvailableCoins(prev => prev - hint.cost);
-    alert(`Pista: ${hint.text}`);
-  };
-
   const handleCheck = async () => {
     const allAnswered = statements.every(s => s.userAnswer !== null);
 
@@ -85,11 +76,17 @@ export const VerdaderoFalsoExercise: React.FC<VerdaderoFalsoExerciseProps> = ({
 
     setShowResults(true);
 
+    // Convert statements array to answers object
+    const answersObj: Record<string, any> = {};
+    statements.forEach(s => {
+      answersObj[s.id] = s.userAnswer;
+    });
+
     const attempt = {
       exerciseId: exercise.id,
       startTime,
       endTime: new Date(),
-      answers: statements.map(s => ({ id: s.id, answer: s.userAnswer })),
+      answers: answersObj,
       correctAnswers: correctCount,
       totalQuestions: statements.length,
       hintsUsed,
@@ -97,7 +94,6 @@ export const VerdaderoFalsoExercise: React.FC<VerdaderoFalsoExerciseProps> = ({
     };
 
     const score = await calculateScore(attempt);
-    setCurrentScore(score.totalScore);
 
     setFeedback({
       type: correctCount === statements.length ? 'success' : 'partial',
@@ -112,52 +108,22 @@ export const VerdaderoFalsoExercise: React.FC<VerdaderoFalsoExerciseProps> = ({
   const handleReset = () => {
     setStatements(exercise.statements.map(stmt => ({ ...stmt, userAnswer: null })));
     setShowResults(false);
-    setCurrentScore(0);
+    setFeedback(null);
+    setShowFeedback(false);
   };
 
+  // Populate actionsRef for parent component
+  useEffect(() => {
+    if (actionsRef) {
+      actionsRef.current = {
+        handleReset,
+        handleCheck
+      };
+    }
+  }, [actionsRef, handleReset, handleCheck]);
+
   return (
-    <ExerciseContainer exercise={exercise}>
-      {/* Header Controls */}
-      <DetectiveCard variant="default" padding="md" className="mb-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <TimerWidget initialTime={0} countDown={false} showWarning={false} />
-            <ProgressTracker
-              current={answeredCount}
-              total={statements.length}
-              variant="bar"
-              className="w-64"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <HintSystem
-              hints={exercise.hints}
-              onUseHint={handleUseHint}
-              availableCoins={availableCoins}
-            />
-            <DetectiveButton
-              variant="blue"
-              onClick={handleReset}
-              disabled={answeredCount === 0}
-            >
-              Reiniciar
-            </DetectiveButton>
-            <DetectiveButton
-              variant="gold"
-              onClick={handleCheck}
-              icon={<Check className="w-5 h-5" />}
-              disabled={answeredCount < statements.length}
-            >
-              Verificar
-            </DetectiveButton>
-          </div>
-        </div>
-        {currentScore > 0 && (
-          <div className="mt-4">
-            <ScoreDisplay score={currentScore} maxScore={100} size="sm" />
-          </div>
-        )}
-      </DetectiveCard>
+    <>
 
       {/* Context Text */}
       {exercise.contextText && (
@@ -278,7 +244,8 @@ export const VerdaderoFalsoExercise: React.FC<VerdaderoFalsoExerciseProps> = ({
           }}
         />
       )}
-    </ExerciseContainer>
+
+    </>
   );
 };
 

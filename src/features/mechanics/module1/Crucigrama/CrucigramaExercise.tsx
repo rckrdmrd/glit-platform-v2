@@ -1,30 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ExerciseContainer } from '@shared/components/mechanics/ExerciseContainer';
-import { ScoreDisplay } from '@shared/components/mechanics/ScoreDisplay';
-import { TimerWidget } from '@shared/components/mechanics/TimerWidget';
-import { ProgressTracker } from '@shared/components/mechanics/ProgressTracker';
-import { HintSystem } from '@shared/components/mechanics/HintSystem';
 import { FeedbackModal } from '@shared/components/mechanics/FeedbackModal';
-import { DetectiveButton } from '@shared/components/base/DetectiveButton';
-import { DetectiveCard } from '@shared/components/base/DetectiveCard';
 import { CrucigramaGrid } from './CrucigramaGrid';
 import { CrucigramaClue } from './CrucigramaClue';
 import { CrucigramaData, CrucigramaCell } from './crucigramaTypes';
 import { calculateScore, saveProgress } from '@shared/components/mechanics/mechanicsTypes';
-import { Check, RotateCcw } from 'lucide-react';
 import { FeedbackData } from '@shared/components/mechanics/mechanicsTypes';
 
 export interface CrucigramaExerciseProps {
   exercise: CrucigramaData;
   onComplete?: () => void;
   onProgressUpdate?: (progress: any) => void;
+  actionsRef?: React.MutableRefObject<{
+    handleReset?: () => void;
+    handleCheck?: () => void;
+  }>;
 }
 
 export const CrucigramaExercise: React.FC<CrucigramaExerciseProps> = ({
   exercise,
   onComplete,
-  onProgressUpdate
+  onProgressUpdate,
+  actionsRef
 }) => {
   const [grid, setGrid] = useState<CrucigramaCell[][]>(
     exercise.grid.map((row) =>
@@ -157,49 +154,18 @@ export const CrucigramaExercise: React.FC<CrucigramaExerciseProps> = ({
     setSelectedCell(null);
   };
 
-  return (
-    <ExerciseContainer exercise={exercise}>
-      {/* Header Controls */}
-      <DetectiveCard variant="default" padding="md" className="mb-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <TimerWidget initialTime={0} countDown={false} showWarning={false} />
-            <ProgressTracker
-              current={completedClues.size}
-              total={exercise.clues.length}
-              variant="bar"
-              className="w-64"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <HintSystem
-              hints={exercise.hints}
-              onUseHint={handleUseHint}
-              availableCoins={availableCoins}
-            />
-            <DetectiveButton
-              variant="blue"
-              onClick={handleReset}
-              icon={<RotateCcw className="w-5 h-5" />}
-            >
-              Reiniciar
-            </DetectiveButton>
-            <DetectiveButton
-              variant="gold"
-              onClick={handleCheck}
-              icon={<Check className="w-5 h-5" />}
-            >
-              Verificar
-            </DetectiveButton>
-          </div>
-        </div>
-        {currentScore > 0 && (
-          <div className="mt-4">
-            <ScoreDisplay score={currentScore} maxScore={100} size="sm" />
-          </div>
-        )}
-      </DetectiveCard>
+  // Populate actionsRef for parent component
+  useEffect(() => {
+    if (actionsRef) {
+      actionsRef.current = {
+        handleReset,
+        handleCheck
+      };
+    }
+  }, [actionsRef, handleReset, handleCheck]);
 
+  return (
+    <>
       {/* Main Content */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Grid */}
@@ -218,17 +184,12 @@ export const CrucigramaExercise: React.FC<CrucigramaExerciseProps> = ({
           </motion.div>
         </div>
 
-        {/* Clues */}
-        <div className="space-y-4">
+        {/* Clues - Unified Display */}
+        <div>
           <CrucigramaClue
             clues={exercise.clues}
             completedClues={completedClues}
-            direction="horizontal"
-          />
-          <CrucigramaClue
-            clues={exercise.clues}
-            completedClues={completedClues}
-            direction="vertical"
+            direction="all"
           />
         </div>
       </div>
@@ -250,7 +211,7 @@ export const CrucigramaExercise: React.FC<CrucigramaExerciseProps> = ({
           }}
         />
       )}
-    </ExerciseContainer>
+    </>
   );
 };
 

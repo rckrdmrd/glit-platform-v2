@@ -33,7 +33,6 @@ export const TimerWidget: React.FC<TimerWidgetProps> = ({
       setTimeLeft((prev) => {
         if (countDown) {
           if (prev <= 1) {
-            clearInterval(interval);
             onTimeUp?.();
             return 0;
           }
@@ -55,8 +54,14 @@ export const TimerWidget: React.FC<TimerWidgetProps> = ({
 
   const isWarning = countDown && showWarning && timeLeft <= warningThreshold && timeLeft > 0;
 
+  const timerLabel = `Tiempo ${countDown ? 'restante' : 'transcurrido'}: ${formatTime(timeLeft)}`;
+
   return (
     <motion.div
+      role="timer"
+      aria-live="polite"
+      aria-atomic="true"
+      aria-label={timerLabel}
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
@@ -66,11 +71,12 @@ export const TimerWidget: React.FC<TimerWidgetProps> = ({
       )}
     >
       {isWarning ? (
-        <AlertCircle className="w-5 h-5 animate-pulse" />
+        <AlertCircle className="w-5 h-5 animate-pulse" aria-hidden="true" />
       ) : (
-        <Clock className="w-5 h-5" />
+        <Clock className="w-5 h-5" aria-hidden="true" />
       )}
-      <span>{formatTime(timeLeft)}</span>
+      <span aria-hidden="true">{formatTime(timeLeft)}</span>
+      {isWarning && <span className="sr-only">Tiempo casi agotado</span>}
     </motion.div>
   );
 };

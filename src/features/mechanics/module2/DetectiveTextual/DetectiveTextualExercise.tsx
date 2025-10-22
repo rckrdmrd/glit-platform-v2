@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Search, Award, Clock, Target } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search } from 'lucide-react';
 import { EvidenceBoard } from './EvidenceBoard';
 import { MagnifyingGlass } from './MagnifyingGlass';
-import { AIHintSystem } from './AIHintSystem';
+import { DetectiveCard } from '@shared/components/base/DetectiveCard';
+import { FeedbackModal } from '@shared/components/mechanics/FeedbackModal';
 import {
   fetchInvestigation,
   validateConnection,
@@ -15,29 +15,81 @@ import type {
   DetectiveProgress,
   Evidence,
   EvidenceConnection,
+  DetectiveTextualExerciseProps,
+  DetectiveTextualState,
 } from './detectiveTextualTypes';
+import { calculateScore, saveProgress, FeedbackData } from '@shared/components/mechanics/mechanicsTypes';
+import { mockInvestigation } from './detectiveTextualMockData';
 
-export const DetectiveTextualExercise: React.FC = () => {
-  const [investigation, setInvestigation] = useState<Investigation | null>(null);
+export const DetectiveTextualExercise: React.FC<DetectiveTextualExerciseProps> = ({
+  moduleId,
+  lessonId,
+  exerciseId,
+  userId,
+  onComplete,
+  onExit,
+  onProgressUpdate,
+  initialData,
+  difficulty = 'medium',
+  actionsRef,
+}) => {
+  // Load exercise data based on exerciseId
+  const [investigation, setInvestigation] = useState<Investigation | null>(mockInvestigation);
   const [progress, setProgress] = useState<DetectiveProgress>({
-    investigationId: '',
-    discoveredEvidence: ['evidence-1'],
-    connections: [],
-    hypotheses: [],
-    hintsUsed: 0,
-    timeSpent: 0,
-    score: 0,
+    investigationId: exerciseId,
+    discoveredEvidence: initialData?.discoveredEvidence || ['evidence-1'],
+    connections: initialData?.connections || [],
+    hypotheses: initialData?.hypotheses || [],
+    hintsUsed: initialData?.hintsUsed || 0,
+    timeSpent: initialData?.timeSpent || 0,
+    score: initialData?.score || 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
   const [availableCoins, setAvailableCoins] = useState(100);
-  const [showResults, setShowResults] = useState(false);
-  const [results, setResults] = useState<any>(null);
+  const [startTime] = useState(new Date());
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackData | null>(null);
 
+  // Load investigation data on mount if needed
   useEffect(() => {
-    loadInvestigation();
-  }, []);
+    if (!investigation) {
+      setInvestigation(mockInvestigation);
+      setProgress((prev) => ({ ...prev, investigationId: exerciseId }));
+    }
+  }, [exerciseId]);
 
+  // Auto-save progress every 30 seconds
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      saveProgress(investigation?.id || '', {
+        discoveredEvidence: progress.discoveredEvidence,
+        connections: progress.connections,
+        hypotheses: progress.hypotheses,
+        hintsUsed: progress.hintsUsed,
+        timeSpent: progress.timeSpent,
+        score: progress.score,
+      });
+    }, 30000);
+
+    return () => clearInterval(autoSaveInterval);
+  }, [progress, investigation]);
+
+  // Progress update callback
+  useEffect(() => {
+    if (onProgressUpdate && investigation) {
+      const progressPercentage = (progress.discoveredEvidence.length / investigation.availableEvidence.length) * 100;
+      onProgressUpdate({
+        currentStep: progress.discoveredEvidence.length,
+        totalSteps: investigation.availableEvidence.length,
+        score: progress.score,
+        hintsUsed: progress.hintsUsed,
+        timeSpent: progress.timeSpent,
+      });
+    }
+  }, [progress.discoveredEvidence.length, progress.score, progress.hintsUsed, progress.timeSpent, investigation, onProgressUpdate]);
+
+  // Timer
   useEffect(() => {
     const timer = setInterval(() => {
       setProgress((prev) => ({ ...prev, timeSpent: prev.timeSpent + 1 }));
@@ -45,17 +97,6 @@ export const DetectiveTextualExercise: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const loadInvestigation = async () => {
-    try {
-      const data = await fetchInvestigation('investigation-marie-curie-1');
-      setInvestigation(data);
-      setProgress((prev) => ({ ...prev, investigationId: data.id }));
-    } catch (error) {
-      console.error('Error loading investigation:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDiscoverEvidence = (evidenceId: string) => {
     if (!progress.discoveredEvidence.includes(evidenceId)) {
@@ -115,12 +156,85 @@ export const DetectiveTextualExercise: React.FC = () => {
   const handleSubmitSolution = async () => {
     try {
       const result = await submitSolution(progress);
-      setResults(result);
-      setShowResults(true);
+
+      // Calculate standardized score
+      const attempt = {
+        exerciseId: investigation?.id || '',
+        startTime,
+        endTime: new Date(),
+        answers: { connections: progress.connections },
+        correctAnswers: progress.connections.filter(c => c.isCorrect).length,
+        totalQuestions: investigation?.correctConnections.length || 0,
+        hintsUsed: progress.hintsUsed,
+        difficulty: investigation?.difficulty || 'medio'
+      };
+
+      const score = await calculateScore(attempt);
+
+      setFeedback({
+        type: result.completed ? 'success' : 'partial',
+        title: result.completed ? '¡Caso Resuelto!' : 'Investigación Incompleta',
+        message: result.feedback,
+        score,
+        showConfetti: result.completed
+      });
+      setShowFeedback(true);
     } catch (error) {
       console.error('Error submitting solution:', error);
+      setFeedback({
+        type: 'error',
+        title: 'Error',
+        message: 'Hubo un error al enviar la solución. Intenta de nuevo.',
+      });
+      setShowFeedback(true);
     }
   };
+
+  const handleReset = useCallback(() => {
+    setProgress({
+      investigationId: investigation?.id || '',
+      discoveredEvidence: ['evidence-1'],
+      connections: [],
+      hypotheses: [],
+      hintsUsed: 0,
+      timeSpent: 0,
+      score: 0,
+    });
+    setAvailableCoins(100);
+    setFeedback(null);
+    setShowFeedback(false);
+  }, [investigation?.id]);
+
+  // Get current state for parent component
+  const getState = useCallback((): DetectiveTextualState => {
+    return {
+      discoveredEvidence: progress.discoveredEvidence,
+      connections: progress.connections,
+      hypotheses: progress.hypotheses,
+      hintsUsed: progress.hintsUsed,
+      timeSpent: progress.timeSpent,
+      score: progress.score,
+    };
+  }, [progress]);
+
+  // Populate actionsRef for parent component control
+  useEffect(() => {
+    if (actionsRef) {
+      actionsRef.current = {
+        getState,
+        reset: handleReset,
+        validate: handleSubmitSolution,
+        discoverEvidence: handleDiscoverEvidence,
+        createConnection: handleCreateConnection,
+      };
+    }
+
+    return () => {
+      if (actionsRef) {
+        actionsRef.current = undefined;
+      }
+    };
+  }, [actionsRef, getState, handleReset, handleSubmitSolution, handleDiscoverEvidence, handleCreateConnection]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -141,168 +255,56 @@ export const DetectiveTextualExercise: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-detective-bg p-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-7xl mx-auto"
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-detective-blue to-detective-orange rounded-detective p-6 mb-6 text-white shadow-detective-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <Search className="w-8 h-8" />
-            <h1 className="text-detective-3xl font-bold">{investigation.title}</h1>
-          </div>
-          <p className="text-detective-lg opacity-90 mb-4">{investigation.description}</p>
-          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
-            <p className="font-medium">Misterio a resolver:</p>
-            <p className="text-detective-lg">{investigation.mystery}</p>
-          </div>
-        </div>
-
-        {/* Stats Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg p-4 shadow-card flex items-center gap-3">
-            <Clock className="w-6 h-6 text-detective-orange" />
-            <div>
-              <div className="text-detective-xs text-detective-text-secondary">Tiempo</div>
-              <div className="text-detective-lg font-bold text-detective-blue">
-                {formatTime(progress.timeSpent)}
-              </div>
+    <>
+      {/* Main Exercise Content */}
+      <DetectiveCard variant="default" padding="lg">
+        <div className="space-y-6">
+          {/* Exercise Description */}
+          <div className="bg-gradient-to-r from-detective-blue to-detective-orange rounded-detective p-6 text-white shadow-detective-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <Search className="w-8 h-8" />
+              <h2 className="text-detective-2xl font-bold">{investigation.title}</h2>
+            </div>
+            <p className="text-detective-base opacity-90 mb-4">{investigation.description}</p>
+            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+              <p className="font-medium">Misterio a resolver:</p>
+              <p className="text-detective-base">{investigation.mystery}</p>
             </div>
           </div>
-          <div className="bg-white rounded-lg p-4 shadow-card flex items-center gap-3">
-            <Search className="w-6 h-6 text-detective-orange" />
-            <div>
-              <div className="text-detective-xs text-detective-text-secondary">Evidencias</div>
-              <div className="text-detective-lg font-bold text-detective-blue">
-                {progress.discoveredEvidence.length}/{investigation.availableEvidence.length}
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-card flex items-center gap-3">
-            <Target className="w-6 h-6 text-detective-orange" />
-            <div>
-              <div className="text-detective-xs text-detective-text-secondary">Conexiones</div>
-              <div className="text-detective-lg font-bold text-detective-blue">
-                {progress.connections.length}
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-card flex items-center gap-3">
-            <Award className="w-6 h-6 text-detective-gold" />
-            <div>
-              <div className="text-detective-xs text-detective-text-secondary">Puntuación</div>
-              <div className="text-detective-lg font-bold text-detective-blue">
-                {progress.score}
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Evidence Board - Large */}
-          <div className="lg:col-span-2">
-            <EvidenceBoard
-              evidence={investigation.availableEvidence}
-              connections={progress.connections}
-              onCreateConnection={handleCreateConnection}
-              onRemoveConnection={handleRemoveConnection}
-            />
-          </div>
+          {/* Evidence Board */}
+          <EvidenceBoard
+            evidence={investigation.availableEvidence}
+            connections={progress.connections}
+            onCreateConnection={handleCreateConnection}
+            onRemoveConnection={handleRemoveConnection}
+          />
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* AI Hint System */}
-            <AIHintSystem
-              onRequestHint={handleRequestHint}
-              availableCoins={availableCoins}
-              hintsUsed={progress.hintsUsed}
-            />
-
-            {/* Undiscovered Evidence */}
-            <div className="bg-white rounded-lg p-4 shadow-card">
-              <h4 className="text-detective-base font-semibold text-detective-blue mb-3">
-                Evidencias por Descubrir
-              </h4>
-              <div className="space-y-2">
-                {investigation.availableEvidence
-                  .filter((ev) => !progress.discoveredEvidence.includes(ev.id))
-                  .map((ev) => (
-                    <button
-                      key={ev.id}
-                      onClick={() => handleDiscoverEvidence(ev.id)}
-                      className="w-full p-3 text-left bg-detective-bg hover:bg-detective-bg-secondary rounded-lg transition-colors border border-detective-orange/30"
-                    >
-                      <div className="text-detective-xs font-medium text-detective-orange mb-1">
-                        {ev.type.toUpperCase()}
-                      </div>
-                      <div className="text-detective-sm text-detective-text">{ev.title}</div>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Magnifying Glass Tool */}
-        {selectedEvidence && (
-          <div className="mb-6">
+          {/* Magnifying Glass Tool */}
+          {selectedEvidence && (
             <MagnifyingGlass text={selectedEvidence.content} />
-          </div>
-        )}
-
-        {/* Submit Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={handleSubmitSolution}
-            disabled={progress.connections.length < 2}
-            className={`px-8 py-4 rounded-lg font-bold text-detective-lg transition-all ${
-              progress.connections.length < 2
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-detective-orange to-detective-gold text-white shadow-gold-lg hover:shadow-gold'
-            }`}
-          >
-            Presentar Solución del Misterio
-          </button>
+          )}
         </div>
+      </DetectiveCard>
 
-        {/* Results Modal */}
-        {showResults && results && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowResults(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-detective p-8 max-w-lg w-full shadow-detective-lg"
-            >
-              <div className="text-center">
-                <Award className="w-16 h-16 text-detective-gold mx-auto mb-4" />
-                <h2 className="text-detective-3xl font-bold text-detective-blue mb-2">
-                  {results.completed ? '¡Caso Resuelto!' : 'Investigación Incompleta'}
-                </h2>
-                <div className="text-6xl font-bold text-detective-orange mb-4">
-                  {results.score}/100
-                </div>
-                <p className="text-detective-base text-detective-text mb-6">{results.feedback}</p>
-                <button
-                  onClick={() => setShowResults(false)}
-                  className="px-6 py-3 bg-detective-orange text-white rounded-lg font-medium hover:bg-detective-orange-dark transition-colors"
-                >
-                  Continuar
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </motion.div>
-    </div>
+      {/* Feedback Modal */}
+      {feedback && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          feedback={feedback}
+          onClose={() => {
+            setShowFeedback(false);
+            if (feedback.type === 'success' && onComplete) {
+              onComplete(progress.score, progress.timeSpent);
+            }
+          }}
+          onRetry={() => {
+            setShowFeedback(false);
+            handleReset();
+          }}
+        />
+      )}
+    </>
   );
 };
 

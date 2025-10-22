@@ -44,26 +44,52 @@ export interface ExerciseProgress {
 export interface ExerciseSubmission {
   exerciseId: string;
   answers: unknown;
-  timeSpent: number;
+  startedAt: number; // Unix timestamp when exercise started
   hintsUsed?: number;
+  powerupsUsed?: string[];
 }
 
 /**
  * Exercise submission response
  */
 export interface ExerciseSubmissionResult {
-  success: boolean;
+  attemptId: string;
   score: number;
+  isPerfect: boolean;
   correctAnswers: number;
   totalQuestions: number;
-  xpEarned: number;
-  mlCoinsEarned: number;
-  feedback: {
-    correct: string[];
-    incorrect: string[];
-    explanations: Record<string, string>;
+  rewards: {
+    mlCoins: number;
+    xp: number;
+    bonuses?: Array<{
+      type: string;
+      amount: number;
+      reason: string;
+    }>;
   };
-  achievements?: string[];
+  feedback: {
+    overall: string;
+    answerReview: Array<{
+      questionId: string;
+      isCorrect: boolean;
+      userAnswer: any;
+      correctAnswer?: any;
+      explanation?: string;
+    }>;
+  };
+  achievements?: Array<{
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+  }>;
+  rankUp?: {
+    oldRank: string;
+    newRank: string;
+    unlockedFeatures: string[];
+  } | null;
+  createdAt: string;
+  explanations?: Record<string, string>;
 }
 
 /**
@@ -398,23 +424,45 @@ export const submitExercise = async (
     if (FEATURE_FLAGS.USE_MOCK_DATA) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const score = Math.floor(Math.random() * 30) + 70;
+      const isPerfect = score === 100;
 
       return {
-        success: true,
+        attemptId: `attempt_${Date.now()}`,
         score,
+        isPerfect,
         correctAnswers: 8,
         totalQuestions: 10,
-        xpEarned: score === 100 ? 150 : 100,
-        mlCoinsEarned: score === 100 ? 30 : 20,
-        feedback: {
-          correct: ['1', '2', '3', '4', '5', '6', '7', '8'],
-          incorrect: ['9', '10'],
-          explanations: {
-            '9': 'Revisa el concepto de fotosíntesis',
-            '10': 'La respuesta se encuentra en el segundo párrafo',
-          },
+        rewards: {
+          xp: isPerfect ? 150 : 100,
+          mlCoins: isPerfect ? 30 : 20,
+          bonuses: isPerfect ? [
+            { type: 'perfect_score', amount: 50, reason: 'Perfect Score Bonus' }
+          ] : undefined,
         },
-        achievements: score === 100 ? ['perfect-score'] : undefined,
+        feedback: {
+          overall: isPerfect ? '¡Excelente trabajo! Respuesta perfecta.' : 'Buen intento, sigue practicando.',
+          answerReview: [
+            { questionId: '1', isCorrect: true, userAnswer: 'respuesta1' },
+            { questionId: '2', isCorrect: true, userAnswer: 'respuesta2' },
+            { questionId: '3', isCorrect: true, userAnswer: 'respuesta3' },
+            { questionId: '4', isCorrect: true, userAnswer: 'respuesta4' },
+            { questionId: '5', isCorrect: true, userAnswer: 'respuesta5' },
+            { questionId: '6', isCorrect: true, userAnswer: 'respuesta6' },
+            { questionId: '7', isCorrect: true, userAnswer: 'respuesta7' },
+            { questionId: '8', isCorrect: true, userAnswer: 'respuesta8' },
+            { questionId: '9', isCorrect: false, userAnswer: 'respuesta9', correctAnswer: 'correcta9', explanation: 'Revisa el concepto de fotosíntesis' },
+            { questionId: '10', isCorrect: false, userAnswer: 'respuesta10', correctAnswer: 'correcta10', explanation: 'La respuesta se encuentra en el segundo párrafo' },
+          ],
+        },
+        achievements: isPerfect ? [
+          { id: 'perfect-score', name: 'Perfect Score', description: 'Completaste el ejercicio con 100%', icon: 'trophy' }
+        ] : undefined,
+        rankUp: null,
+        createdAt: new Date().toISOString(),
+        explanations: {
+          '9': 'Revisa el concepto de fotosíntesis',
+          '10': 'La respuesta se encuentra en el segundo párrafo',
+        },
       };
     }
 
@@ -448,22 +496,19 @@ export const saveExerciseProgress = async (
   }
 ): Promise<{ success: boolean }> => {
   try {
-    if (FEATURE_FLAGS.USE_MOCK_DATA) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      return { success: true };
-    }
+    // Save progress locally (localStorage)
+    // Progress is automatically saved to DB when exercise is submitted
+    const key = `exercise_progress_${exerciseId}`;
+    localStorage.setItem(key, JSON.stringify({
+      ...progressData,
+      timestamp: new Date().toISOString(),
+    }));
 
-    const { data } = await apiClient.put<ApiResponse<{ success: boolean }>>(
-      `${API_ENDPOINTS.educational.exercise(exerciseId)}/progress`,
-      {
-        progress: progressData,
-        timestamp: new Date().toISOString(),
-      }
-    );
-
-    return data.data;
+    // Return success immediately
+    return { success: true };
   } catch (error) {
-    throw handleAPIError(error);
+    console.warn('Failed to save progress locally:', error);
+    return { success: false };
   }
 };
 
@@ -486,9 +531,10 @@ export const getExerciseHints = async (
       ];
     }
 
-    const { data } = await apiClient.get<
+    // Use the educational route instead of mechanics
+    const { data} = await apiClient.get<
       ApiResponse<Array<{ id: string; text: string; cost: number; order: number }>>
-    >(API_ENDPOINTS.mechanics.hints(exerciseId));
+    >(`/educational/mechanics/${exerciseId}/hints`);
 
     return data.data;
   } catch (error) {

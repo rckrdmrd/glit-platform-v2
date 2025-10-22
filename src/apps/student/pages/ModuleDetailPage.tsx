@@ -388,136 +388,127 @@ export default function ModuleDetailPage() {
           </EnhancedCard>
         )}
 
-        {/* Main Grid Layout - Compact */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-          {/* Main Content Area - Left side (2 cols) */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Competencies and Skills Section - Compact */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Competencies */}
-              {module.competencies && module.competencies.length > 0 && (
-                <EnhancedCard variant="default" hover={false} padding="sm">
-                  <h2 className="text-base font-bold text-detective-text mb-2 flex items-center gap-2">
-                    <Award className="w-4 h-4 text-detective-blue" />
-                    Competencias
-                  </h2>
-                  <ul className="space-y-1.5">
-                    {module.competencies.map((competency, idx) => (
-                      <li key={idx} className="flex items-start gap-1.5">
-                        <span className="text-detective-blue mt-0.5 text-sm">•</span>
-                        <span className="text-detective-text-secondary text-xs">{competency}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </EnhancedCard>
-              )}
-
-              {/* Skills Developed */}
-              {module.skillsDeveloped && module.skillsDeveloped.length > 0 && (
-                <EnhancedCard variant="default" hover={false} padding="sm">
-                  <h2 className="text-base font-bold text-detective-text mb-2 flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-detective-purple" />
-                    Habilidades Desarrolladas
-                  </h2>
-                  <ul className="space-y-1.5">
-                    {module.skillsDeveloped.map((skill, idx) => (
-                      <li key={idx} className="flex items-start gap-1.5">
-                        <span className="text-detective-purple mt-0.5 text-sm">•</span>
-                        <span className="text-detective-text-secondary text-xs">{skill}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </EnhancedCard>
-              )}
-            </div>
-
-            {/* Prerequisites Section - Compact */}
-            {module.prerequisites && module.prerequisites.length > 0 && (
-              <EnhancedCard variant="warning" hover={false} padding="sm">
-                <h2 className="text-base font-bold text-detective-text mb-2 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-detective-blue" />
-                  Requisitos Previos
-                </h2>
-                <ul className="space-y-1.5">
-                  {module.prerequisites.map((prerequisite, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <CheckCircle className="w-3.5 h-3.5 text-detective-blue mt-0.5 flex-shrink-0" />
-                      <span className="text-detective-text-secondary text-xs">{prerequisite}</span>
-                    </li>
-                  ))}
-                </ul>
-              </EnhancedCard>
-            )}
-
-            {/* Exercises Section - Compact */}
-            <div>
-              <h2 className="text-lg font-bold text-detective-text mb-1 flex items-center gap-2">
-                <Target className="w-5 h-5 text-detective-orange" />
-                Ejercicios del Módulo
+        {/* Competencies and Skills Section - Compact */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Competencies */}
+          {module.competencies && module.competencies.length > 0 && (
+            <EnhancedCard variant="default" hover={false} padding="sm" className="lg:col-span-2">
+              <h2 className="text-base font-bold text-detective-text mb-2 flex items-center gap-2">
+                <Award className="w-4 h-4 text-detective-blue" />
+                Competencias
               </h2>
-              <p className="text-sm text-detective-text-secondary mb-3">
-                {completedExercises} de {totalExercises} ejercicios completados
-              </p>
-
-              <div className="grid grid-cols-1 gap-3">
-                {exercises.map((exercise, index) => (
-                  <ColorfulCard
-                    key={exercise.id}
-                    id={exercise.id}
-                    hover={true}
-                    padding="md"
-                    onClick={() => navigate(`/module/${moduleId}/exercise/${exercise.id}`)}
-                    animationDelay={index * 0.1}
-                  >
-                    <ExerciseCardContent exercise={exercise} />
-                  </ColorfulCard>
+              <ul className="space-y-1.5">
+                {module.competencies.map((competency, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="text-detective-blue mt-0.5 text-sm">•</span>
+                    <span className="text-detective-text-secondary text-xs">{competency}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
+            </EnhancedCard>
+          )}
 
-              {/* No exercises message */}
-              {exercises.length === 0 && (
-                <EnhancedCard variant="default" hover={false} className="text-center py-12">
-                  <Target className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-detective-text-secondary text-lg">
-                    No hay ejercicios disponibles en este módulo todavía.
+          {/* Skills Developed */}
+          {module.skillsDeveloped && module.skillsDeveloped.length > 0 && (
+            <EnhancedCard variant="default" hover={false} padding="sm" className="lg:col-span-2">
+              <h2 className="text-base font-bold text-detective-text mb-2 flex items-center gap-2">
+                <Brain className="w-4 h-4 text-detective-purple" />
+                Habilidades Desarrolladas
+              </h2>
+              <ul className="space-y-1.5">
+                {module.skillsDeveloped.map((skill, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="text-detective-purple mt-0.5 text-sm">•</span>
+                    <span className="text-detective-text-secondary text-xs">{skill}</span>
+                  </li>
+                ))}
+              </ul>
+            </EnhancedCard>
+          )}
+        </div>
+
+        {/* Prerequisites Section - Compact */}
+        {module.prerequisites && module.prerequisites.length > 0 && (
+          <EnhancedCard variant="warning" hover={false} padding="sm" className="mb-6">
+            <h2 className="text-base font-bold text-detective-text mb-2 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-detective-blue" />
+              Requisitos Previos
+            </h2>
+            <ul className="space-y-1.5">
+              {module.prerequisites.map((prerequisite, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-detective-blue mt-0.5 flex-shrink-0" />
+                  <span className="text-detective-text-secondary text-xs">{prerequisite}</span>
+                </li>
+              ))}
+            </ul>
+          </EnhancedCard>
+        )}
+
+        {/* Rango Maya Section */}
+        {(module.rangoMayaRequired || module.rangoMayaGranted) && (
+          <EnhancedCard variant="default" hover={false} padding="sm" className="bg-gradient-to-r from-amber-50 to-orange-50 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {module.rangoMayaRequired && (
+                <div>
+                  <h3 className="text-sm font-bold text-detective-text mb-1 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-amber-600" />
+                    Rango Requerido
+                  </h3>
+                  <p className="text-lg font-bold text-amber-700 capitalize">
+                    {module.rangoMayaRequired}
                   </p>
-                </EnhancedCard>
+                </div>
+              )}
+              {module.rangoMayaGranted && (
+                <div>
+                  <h3 className="text-sm font-bold text-detective-text mb-1 flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-orange-600" />
+                    Rango Otorgado
+                  </h3>
+                  <p className="text-lg font-bold text-orange-700 capitalize">
+                    {module.rangoMayaGranted}
+                  </p>
+                </div>
               )}
             </div>
+          </EnhancedCard>
+        )}
+
+        {/* Exercises Section - Full Width */}
+        <div className="mb-6">
+          <h2 className="text-lg font-bold text-detective-text mb-1 flex items-center gap-2">
+            <Target className="w-5 h-5 text-detective-orange" />
+            Ejercicios del Módulo
+          </h2>
+          <p className="text-sm text-detective-text-secondary mb-3">
+            {completedExercises} de {totalExercises} ejercicios completados
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {exercises.map((exercise, index) => (
+              <ColorfulCard
+                key={exercise.id}
+                id={exercise.id}
+                hover={true}
+                padding="md"
+                onClick={() => navigate(`/module/${moduleId}/exercise/${exercise.id}`)}
+                animationDelay={index * 0.1}
+              >
+                <ExerciseCardContent exercise={exercise} />
+              </ColorfulCard>
+            ))}
           </div>
 
-          {/* Sidebar - Right side (1 col) - Compact */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* Rango Maya Section */}
-            {(module.rangoMayaRequired || module.rangoMayaGranted) && (
-              <EnhancedCard variant="default" hover={false} padding="sm" className="bg-gradient-to-r from-amber-50 to-orange-50">
-                <div className="space-y-3">
-                  {module.rangoMayaRequired && (
-                    <div>
-                      <h3 className="text-sm font-bold text-detective-text mb-1 flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-amber-600" />
-                        Rango Requerido
-                      </h3>
-                      <p className="text-lg font-bold text-amber-700 capitalize">
-                        {module.rangoMayaRequired}
-                      </p>
-                    </div>
-                  )}
-                  {module.rangoMayaGranted && (
-                    <div>
-                      <h3 className="text-sm font-bold text-detective-text mb-1 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-orange-600" />
-                        Rango Otorgado
-                      </h3>
-                      <p className="text-lg font-bold text-orange-700 capitalize">
-                        {module.rangoMayaGranted}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </EnhancedCard>
-            )}
-          </div>
+          {/* No exercises message */}
+          {exercises.length === 0 && (
+            <EnhancedCard variant="default" hover={false} className="text-center py-12">
+              <Target className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-detective-text-secondary text-lg">
+                No hay ejercicios disponibles en este módulo todavía.
+              </p>
+            </EnhancedCard>
+          )}
         </div>
 
         {/* Bottom Spacing */}
